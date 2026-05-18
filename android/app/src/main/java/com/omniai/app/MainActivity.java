@@ -28,6 +28,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+/**
+ * OmniAI Android App
+ * 
+ * Flujo:
+ * 1. El usuario inicia sesión con Google (misma cuenta que en el PC)
+ * 2. La app busca en Firebase si el PC del usuario está online
+ * 3. Si está online, se conecta automáticamente al PC vía su URL
+ * 4. Si no está online, muestra mensaje de que debe encender el PC
+ */
 public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
@@ -76,7 +85,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Pedir permisos de cámara
         requestCameraPermission();
     }
 
@@ -104,7 +112,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                // Mostrar pantalla de conexión si falla
                 runOnUiThread(() -> {
                     webView.setVisibility(View.GONE);
                     connectLayout.setVisibility(View.VISIBLE);
@@ -185,7 +192,6 @@ public class MainActivity extends AppCompatActivity {
         if (webView.canGoBack()) {
             webView.goBack();
         } else {
-            // Volver a pantalla de conexión
             webView.setVisibility(View.GONE);
             connectLayout.setVisibility(View.VISIBLE);
         }

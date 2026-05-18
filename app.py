@@ -1,13 +1,14 @@
 """
-OmniAI - Asistente de IA Universal (Sin API - 100% Local)
-Usa Ollama para ejecutar modelos de IA en tu propio PC.
-No necesita internet, no necesita API keys, no tiene costes.
+OmniAI - Asistente de IA Universal (Local + Cuentas)
+Usa Ollama para IA local + Firebase para sincronizar PC y móvil.
 """
 
 import os
 import json
 import base64
 import uuid
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -37,8 +38,22 @@ OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
 MODEL = os.environ.get('MODEL', 'llama3.2')
 VISION_MODEL = os.environ.get('VISION_MODEL', 'llava')
 
-# Almacen de conversaciones en memoria (persistido en disco)
+# Firebase config
+FIREBASE_CONFIG = {
+    'apiKey': "AIzaSyAuAzEyn3luxkRBLctQiNa4arTk94f6o",
+    'authDomain': "omniai-d081d.firebaseapp.com",
+    'projectId': "omniai-d081d",
+    'storageBucket': "omniai-d081d.firebasestorage.app",
+    'messagingSenderId': "216262332338",
+    'appId': "1:216262332338:web:71f597b7476c43da0fdeab",
+    'measurementId': "G-NZ1WPLSRMT",
+    'databaseURL': "https://omniai-d081d-default-rtdb.firebaseio.com"
+}
+
+# Almacen de conversaciones en memoria
 conversations = {}
+# Usuario actual logueado
+current_user = None
 
 
 def load_conversations():
@@ -119,7 +134,6 @@ def chat_with_ollama(messages, model=None, images=None):
     """Envia mensajes a Ollama y obtiene respuesta."""
     use_model = model or MODEL
 
-    # Construir payload para Ollama
     payload = {
         'model': use_model,
         'messages': messages,
@@ -130,10 +144,8 @@ def chat_with_ollama(messages, model=None, images=None):
         }
     }
 
-    # Si hay imagenes, usar modelo de vision
     if images:
         payload['model'] = VISION_MODEL
-        # Agregar imagenes al ultimo mensaje
         if payload['messages']:
             payload['messages'][-1]['images'] = images
 
@@ -141,7 +153,7 @@ def chat_with_ollama(messages, model=None, images=None):
         r = requests.post(
             f'{OLLAMA_URL}/api/chat',
             json=payload,
-            timeout=300  # 5 min timeout para respuestas largas
+            timeout=300
         )
 
         if r.status_code == 200:
@@ -153,9 +165,9 @@ def chat_with_ollama(messages, model=None, images=None):
             return f"Error de Ollama: {error_msg}"
 
     except requests.exceptions.ConnectionError:
-        return "⚠️ No se puede conectar con Ollama. Asegúrate de que Ollama esté ejecutándose (escribe 'ollama serve' en otra terminal)."
+        return "⚠️ No se puede conectar con Ollama. Asegúrate de que Ollama esté ejecutándose."
     except requests.exceptions.Timeout:
-        return "⚠️ La respuesta tardó demasiado. Intenta con una pregunta más corta o un modelo más pequeño."
+        return "⚠️ La respuesta tardó demasiado. Intenta con una pregunta más corta."
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
 
@@ -187,6 +199,40 @@ def get_status():
     })
 
 
+@app.route('/api/firebase-config', methods=['GET'])
+def get_firebase_config():
+    """Devuelve la configuración de Firebase para el frontend."""
+    return jsonify(FIREBASE_CONFIG)
+
+
+# --- API DE RELAY (para que el móvil se conecte) ---
+
+@app.route('/api/relay/register', methods=['POST'])
+def relay_register():
+    """Registra este PC como servidor para un usuario."""
+    global current_user
+    data = request.json
+    user_id = data.get('user_id')
+    user_email = data.get('email')
+
+    if user_id:
+        current_user = {'uid': user_id, 'email': user_email}
+        return jsonify({'success': True, 'message': 'PC registrado correctamente'})
+    return jsonify({'error': 'No se proporcionó usuario'}), 400
+
+
+@app.route('/api/relay/status', methods=['GET'])
+def relay_status():
+    """Verifica si hay un usuario logueado en este PC."""
+    if current_user:
+        return jsonify({
+            'logged_in': True,
+            'user': current_user,
+            'ollama': check_ollama()
+        })
+    return jsonify({'logged_in': False})
+
+
 # --- API DE CONVERSACIONES ---
 
 @app.route('/api/conversations', methods=['GET'])
@@ -213,7 +259,7 @@ def create_conversation():
         'title': 'Nueva conversación',
         'created_at': datetime.now().isoformat(),
         'messages': [],
-        'system_prompt': "Eres OmniAI, un asistente de inteligencia artificial experto en absolutamente todos los temas. Respondes de forma clara, detallada y precisa en español. Puedes ayudar con cualquier tarea: programación, matemáticas, ciencias, idiomas, historia, arte, música, cocina, deportes, medicina, derecho, economía, filosofía, y cualquier otro tema. No tienes límites en la cantidad de respuestas. Siempre intentas dar la mejor respuesta posible."
+        'system_prompt': "Eres OmniAI, un asistente de inteligencia artificial experto en absolutamente todos los temas. Respondes de forma clara, detallada y precisa en español. Puedes ayudar con cualquier tarea: programación, matemáticas, ciencias, idiomas, historia, arte, música, cocina, deportes, medicina, derecho, economía, filosofía, y cualquier otro tema. No tienes límites en la cantidad de respuestas."
     }
     save_conversation(conv_id)
     return jsonify(conversations[conv_id])
@@ -257,7 +303,6 @@ def chat():
     content_parts = []
     images = []
 
-    # Procesar archivos adjuntos
     for attachment in attachments:
         file_path = attachment.get('path', '')
         file_type = attachment.get('type', '')
@@ -269,7 +314,6 @@ def chat():
             text = extract_text_from_docx(file_path)
             content_parts.append(f"[Contenido del documento Word adjunto]:\n{text}\n")
         elif file_type in ('image', 'camera'):
-            # Codificar imagen para modelo de vision
             img_b64 = encode_image_to_base64(file_path)
             images.append(img_b64)
             content_parts.append("[Imagen adjunta - analízala]")
@@ -289,12 +333,10 @@ def chat():
     # Construir mensajes para Ollama
     ollama_messages = [{"role": "system", "content": conv['system_prompt']}]
 
-    # Agregar historial (ultimos 20 mensajes para no sobrecargar)
     recent_messages = conv['messages'][-20:]
     for msg in recent_messages:
         ollama_messages.append({"role": msg['role'], "content": msg['content']})
 
-    # Agregar mensaje actual
     ollama_messages.append({"role": "user", "content": full_message_text})
 
     # Guardar mensaje del usuario
@@ -305,11 +347,10 @@ def chat():
         'attachments': [{'name': a.get('name', ''), 'type': a.get('type', '')} for a in attachments]
     })
 
-    # Actualizar titulo si es el primer mensaje
     if len(conv['messages']) == 1 and message:
         conv['title'] = message[:50] + ('...' if len(message) > 50 else '')
 
-    # Llamar a Ollama (local)
+    # Llamar a Ollama
     assistant_message = chat_with_ollama(ollama_messages, images=images if images else None)
 
     conv['messages'].append({
@@ -338,13 +379,11 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': 'Nombre de archivo vacío'}), 400
 
-    # Generar nombre unico
     ext = Path(file.filename).suffix
     unique_name = f"{uuid.uuid4()}{ext}"
     filepath = UPLOAD_FOLDER / unique_name
     file.save(str(filepath))
 
-    # Determinar tipo
     file_type = 'unknown'
     if ext.lower() == '.pdf':
         file_type = 'pdf'
@@ -377,7 +416,6 @@ def camera_capture():
     if not image_data:
         return jsonify({'error': 'No se recibió imagen'}), 400
 
-    # Decodificar base64
     if ',' in image_data:
         image_data = image_data.split(',')[1]
 
@@ -413,7 +451,6 @@ def create_podcast():
         return jsonify({'error': 'No se proporcionó texto para el podcast'}), 400
 
     try:
-        # Generar audio con gTTS
         tts = gTTS(text=text, lang=language, slow=False)
         unique_name = f"{uuid.uuid4()}.mp3"
         filepath = PODCASTS_FOLDER / unique_name
@@ -495,8 +532,8 @@ load_conversations()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     print(f"\n{'='*50}")
-    print(f"  OmniAI - Asistente de IA Universal (LOCAL)")
-    print(f"  Sin API - Sin costes - 100% privado")
+    print(f"  OmniAI - Asistente de IA Universal")
+    print(f"  Con cuentas de Google + IA Local")
     print(f"{'='*50}")
     print(f"\n  Servidor: http://localhost:{port}")
     print(f"  Modelo: {MODEL}")
@@ -504,16 +541,10 @@ if __name__ == '__main__':
     if check_ollama():
         models = get_available_models()
         print(f"  Ollama: ✓ Conectado")
-        print(f"  Modelos disponibles: {', '.join(models) if models else 'ninguno'}")
-        if not models:
-            print(f"\n  ⚠️  No hay modelos instalados.")
-            print(f"  Ejecuta: ollama pull {MODEL}")
+        print(f"  Modelos: {', '.join(models) if models else 'ninguno'}")
     else:
         print(f"  Ollama: ✗ No detectado")
-        print(f"\n  ⚠️  Ollama no está ejecutándose.")
-        print(f"  1. Instala Ollama: https://ollama.com")
-        print(f"  2. Ejecuta: ollama serve")
-        print(f"  3. Descarga un modelo: ollama pull {MODEL}")
+        print(f"  Ejecuta: ollama serve")
 
     print(f"\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=True)
