@@ -7,3 +7,6 @@ conversations/
 .env
 *.mp3
 .vscode/
+build/
+dist/
+*.spec
