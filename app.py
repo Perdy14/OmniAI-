@@ -40,7 +40,7 @@ VISION_MODEL = os.environ.get('VISION_MODEL', 'llava')
 
 # Firebase config
 FIREBASE_CONFIG = {
-    'apiKey': "AIzaSyAuAzEyn3luxkRBLctQiNa4arTk94f6o",
+    'apiKey': "AIzaSyAJLA2Eryn31uxkR8LctQiNa4afTk94f6o",
     'authDomain': "omniai-d081d.firebaseapp.com",
     'projectId': "omniai-d081d",
     'storageBucket': "omniai-d081d.firebasestorage.app",
@@ -437,24 +437,149 @@ def camera_capture():
     })
 
 
+# --- API DE GENERACION DE IMAGENES ---
+
+@app.route('/api/generate-image', methods=['POST'])
+def generate_image():
+    """Genera una imagen con IA usando servicios gratuitos."""
+    data = request.json
+    prompt = data.get('prompt', '')
+
+    if not prompt:
+        return jsonify({'error': 'No se proporcionó una descripción'}), 400
+
+    try:
+        import urllib.parse
+        encoded_prompt = urllib.parse.quote(prompt)
+        seed = uuid.uuid4().int % 100000
+
+        # Intentar con Pollinations primero
+        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=768&height=768&nologo=true&seed={seed}"
+        response = requests.get(image_url, timeout=180)
+
+        # Si Pollinations falla, usar servicio alternativo
+        if response.status_code != 200 or len(response.content) < 1000:
+            # Alternativa: usar otro endpoint de Pollinations con modelo diferente
+            image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&model=flux-realism"
+            response = requests.get(image_url, timeout=180)
+
+        if response.status_code == 200 and len(response.content) > 1000:
+            unique_name = f"{uuid.uuid4()}.png"
+            filepath = UPLOAD_FOLDER / unique_name
+
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+
+            # Guardar en historial
+            history_file = UPLOAD_FOLDER / 'image_history.json'
+            history = []
+            if history_file.exists():
+                try:
+                    with open(history_file, 'r', encoding='utf-8') as f:
+                        history = json.load(f)
+                except Exception:
+                    pass
+            history.append({
+                'url': f'/uploads/{unique_name}',
+                'prompt': prompt,
+                'created_at': datetime.now().isoformat()
+            })
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(history, f, ensure_ascii=False)
+
+            return jsonify({
+                'success': True,
+                'image': {
+                    'url': f'/uploads/{unique_name}',
+                    'prompt': prompt
+                }
+            })
+        else:
+            return jsonify({'error': 'El servicio de imágenes está saturado. Espera unos minutos e intenta de nuevo.'}), 503
+
+    except Exception as e:
+        return jsonify({'error': f'Error: {str(e)}'}), 500
+
+
+@app.route('/uploads/<filename>')
+def serve_upload(filename):
+    """Sirve archivos subidos/generados."""
+    return send_from_directory('uploads', filename)
+
+
+@app.route('/api/image-history', methods=['GET'])
+def get_image_history():
+    """Devuelve el historial de imágenes generadas."""
+    images = []
+    history_file = UPLOAD_FOLDER / 'image_history.json'
+    if history_file.exists():
+        try:
+            with open(history_file, 'r', encoding='utf-8') as f:
+                images = json.load(f)
+        except Exception:
+            pass
+    images.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    return jsonify(images)
+
+
 # --- API DE PODCAST ---
 
 @app.route('/api/podcast', methods=['POST'])
 def create_podcast():
-    """Genera un podcast (audio) a partir de texto."""
+    """Genera un podcast (audio) a partir de texto con voz realista."""
     data = request.json
     text = data.get('text', '')
     title = data.get('title', 'Podcast sin título')
     language = data.get('language', 'es')
+    voice = data.get('voice', '')
 
     if not text:
         return jsonify({'error': 'No se proporcionó texto para el podcast'}), 400
 
+    # Voces realistas por idioma (Microsoft Edge TTS)
+    voices = {
+        'es': 'es-ES-AlvaroNeural',
+        'es-f': 'es-ES-ElviraNeural',
+        'en': 'en-US-GuyNeural',
+        'en-f': 'en-US-JennyNeural',
+        'fr': 'fr-FR-HenriNeural',
+        'de': 'de-DE-ConradNeural',
+        'pt': 'pt-BR-AntonioNeural',
+        'it': 'it-IT-DiegoNeural'
+    }
+
+    selected_voice = voice if voice else voices.get(language, 'es-ES-AlvaroNeural')
+
     try:
-        tts = gTTS(text=text, lang=language, slow=False)
-        unique_name = f"{uuid.uuid4()}.mp3"
+        import asyncio
+        import edge_tts
+
+        # Usar titulo como nombre de archivo (limpio)
+        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = safe_title[:50] if safe_title else 'podcast'
+        unique_name = f"{safe_title}_{uuid.uuid4().hex[:6]}.mp3"
         filepath = PODCASTS_FOLDER / unique_name
-        tts.save(str(filepath))
+
+        async def generate_audio():
+            communicate = edge_tts.Communicate(text, selected_voice, rate="+0%", pitch="+0Hz")
+            await communicate.save(str(filepath))
+
+        # Ejecutar async
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(lambda: asyncio.run(generate_audio())).result()
+            else:
+                loop.run_until_complete(generate_audio())
+        except RuntimeError:
+            asyncio.run(generate_audio())
+
+        # Guardar metadata
+        meta_path = PODCASTS_FOLDER / f"{unique_name}.json"
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            json.dump({'title': title, 'voice': selected_voice, 'language': language}, f)
 
         return jsonify({
             'success': True,
@@ -506,8 +631,20 @@ def list_podcasts():
     """Lista todos los podcasts generados."""
     podcasts = []
     for file in PODCASTS_FOLDER.glob('*.mp3'):
+        # Buscar metadata
+        meta_path = PODCASTS_FOLDER / f"{file.name}.json"
+        title = file.stem
+        if meta_path.exists():
+            try:
+                with open(meta_path, 'r', encoding='utf-8') as f:
+                    meta = json.load(f)
+                    title = meta.get('title', file.stem)
+            except Exception:
+                pass
+
         podcasts.append({
             'id': file.stem,
+            'title': title,
             'filename': file.name,
             'size': file.stat().st_size,
             'created_at': datetime.fromtimestamp(file.stat().st_mtime).isoformat()
@@ -530,6 +667,8 @@ def get_podcast(filename):
 load_conversations()
 
 if __name__ == '__main__':
+    import webbrowser
+
     port = int(os.environ.get('PORT', '5000'))
     print(f"\n{'='*50}")
     print(f"  OmniAI - Asistente de IA Universal")
@@ -546,5 +685,12 @@ if __name__ == '__main__':
         print(f"  Ollama: ✗ No detectado")
         print(f"  Ejecuta: ollama serve")
 
-    print(f"\n{'='*50}\n")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    print(f"\n{'='*50}")
+    print(f"  La app se abrirá en tu navegador...")
+    print(f"  NO cierres esta ventana mientras uses OmniAI.")
+    print(f"{'='*50}\n")
+
+    # Abrir navegador automáticamente
+    webbrowser.open(f'http://localhost:{port}')
+
+    app.run(host='0.0.0.0', port=port, debug=False)

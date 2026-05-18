@@ -39,8 +39,7 @@ async function initFirebase() {
         // Escuchar cambios de autenticación
         firebaseAuth.onAuthStateChanged(handleAuthStateChanged);
     } catch (e) {
-        console.log('Firebase no disponible, modo offline');
-        // Si no hay Firebase, permitir uso sin cuenta
+        console.log('Firebase no disponible, modo offline:', e);
         showApp();
     }
 }
@@ -54,8 +53,9 @@ function handleAuthStateChanged(user) {
             photo: user.photoURL
         };
         showUserInfo();
-        registerPC();
         showApp();
+        // Registrar en background, sin bloquear
+        setTimeout(() => registerPC(), 1000);
     }
 }
 
@@ -87,18 +87,22 @@ async function logout() {
 function registerPC() {
     // Registrar este PC en Firebase para que el móvil lo encuentre
     if (state.user && firebaseDb) {
-        const pcRef = firebaseDb.ref(`users/${state.user.uid}/pc`);
-        pcRef.set({
-            online: true,
-            lastSeen: Date.now(),
-            url: window.location.origin
-        });
+        try {
+            const pcRef = firebaseDb.ref(`users/${state.user.uid}/pc`);
+            pcRef.set({
+                online: true,
+                lastSeen: Date.now(),
+                url: window.location.origin
+            }).catch(e => console.log('Firebase write error:', e));
 
-        // Marcar como offline al cerrar
-        pcRef.onDisconnect().update({
-            online: false,
-            lastSeen: Date.now()
-        });
+            // Marcar como offline al cerrar
+            pcRef.onDisconnect().update({
+                online: false,
+                lastSeen: Date.now()
+            }).catch(e => {});
+        } catch (e) {
+            console.log('Firebase register error:', e);
+        }
 
         // También registrar en el backend
         fetch('/api/relay/register', {
@@ -108,10 +112,7 @@ function registerPC() {
                 user_id: state.user.uid,
                 email: state.user.email
             })
-        });
-
-        // Escuchar mensajes del móvil
-        listenForMobileMessages();
+        }).catch(e => {});
     }
 }
 
@@ -370,24 +371,248 @@ function createMessageHTML(msg) {
         </div>`;
     }
 
+    const actionsHTML = !isUser ? `
+        <div class="message-actions">
+            <button class="msg-action-btn" onclick="copyMessage(this)" title="Copiar">
+                <i class="fas fa-copy"></i>
+            </button>
+            <button class="msg-action-btn" onclick="translateMessage(this)" title="Traducir">
+                <i class="fas fa-language"></i>
+            </button>
+            <button class="msg-action-btn" onclick="regenerateMessage(this)" title="Regenerar">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+    ` : `
+        <div class="message-actions">
+            <button class="msg-action-btn" onclick="editMessage(this)" title="Editar">
+                <i class="fas fa-edit"></i>
+            </button>
+        </div>
+    `;
+
     return `
-        <div class="message ${isUser ? 'user' : 'assistant'}">
+        <div class="message ${isUser ? 'user' : 'assistant'}" data-content="${encodeURIComponent(msg.content || '')}">
             <div class="message-avatar">${avatar}</div>
             <div class="message-content">
                 ${attachmentsHTML}
                 ${content}
+                ${actionsHTML}
             </div>
         </div>
     `;
 }
 
+function copyMessage(btn) {
+    const msgEl = btn.closest('.message');
+    const content = decodeURIComponent(msgEl.dataset.content);
+    navigator.clipboard.writeText(content).then(() => {
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i>'; }, 2000);
+    });
+}
+
+async function translateMessage(btn) {
+    const msgEl = btn.closest('.message');
+    const content = decodeURIComponent(msgEl.dataset.content);
+
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        const result = await api.sendMessage(
+            state.currentConversation.id,
+            `Traduce el siguiente texto al inglés (si está en español) o al español (si está en otro idioma). Solo devuelve la traducción, nada más:\n\n${content}`,
+            []
+        );
+
+        if (result.response) {
+            const translationDiv = document.createElement('div');
+            translationDiv.className = 'translation-box';
+            translationDiv.innerHTML = `<p><strong>🌐 Traducción:</strong></p><p>${formatMessage(result.response)}</p>`;
+            const contentEl = msgEl.querySelector('.message-content');
+            const existing = contentEl.querySelector('.translation-box');
+            if (existing) existing.remove();
+            contentEl.appendChild(translationDiv);
+        }
+    } catch (e) {
+        alert('Error al traducir');
+    }
+
+    btn.innerHTML = '<i class="fas fa-language"></i>';
+}
+
+async function regenerateMessage(btn) {
+    if (!state.currentConversation || state.isLoading) return;
+
+    const msgEl = btn.closest('.message');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    // Buscar el último mensaje del usuario
+    const messages = state.currentConversation.messages;
+    let lastUserMsg = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+            lastUserMsg = messages[i].content;
+            break;
+        }
+    }
+
+    if (!lastUserMsg) return;
+
+    try {
+        const result = await api.sendMessage(
+            state.currentConversation.id,
+            lastUserMsg + '\n\n(Genera una respuesta diferente a la anterior)',
+            []
+        );
+
+        if (result.response) {
+            // Reemplazar contenido del mensaje
+            const contentEl = msgEl.querySelector('.message-content');
+            const actionsEl = contentEl.querySelector('.message-actions');
+            const translationEl = contentEl.querySelector('.translation-box');
+            if (translationEl) translationEl.remove();
+            
+            // Actualizar contenido
+            msgEl.dataset.content = encodeURIComponent(result.response);
+            contentEl.innerHTML = formatMessage(result.response) + `
+                <div class="message-actions">
+                    <button class="msg-action-btn" onclick="copyMessage(this)" title="Copiar"><i class="fas fa-copy"></i></button>
+                    <button class="msg-action-btn" onclick="translateMessage(this)" title="Traducir"><i class="fas fa-language"></i></button>
+                    <button class="msg-action-btn" onclick="regenerateMessage(this)" title="Regenerar"><i class="fas fa-redo"></i></button>
+                </div>`;
+        }
+    } catch (e) {
+        alert('Error al regenerar');
+    }
+
+    btn.innerHTML = '<i class="fas fa-redo"></i>';
+}
+
+function editMessage(btn) {
+    const msgEl = btn.closest('.message');
+    const content = decodeURIComponent(msgEl.dataset.content);
+
+    // Poner el texto en el input para editarlo
+    $('#message-input').value = content;
+    $('#message-input').focus();
+    autoResizeTextarea();
+
+    // Eliminar el mensaje y la respuesta que le sigue
+    const allMessages = [...$$('#chat-messages .message')];
+    const idx = allMessages.indexOf(msgEl);
+    
+    // Eliminar desde este mensaje en adelante
+    for (let i = allMessages.length - 1; i >= idx; i--) {
+        allMessages[i].remove();
+    }
+
+    // También eliminar del estado
+    if (state.currentConversation) {
+        const convMessages = state.currentConversation.messages;
+        // Buscar el mensaje correspondiente y eliminar desde ahí
+        for (let i = convMessages.length - 1; i >= 0; i--) {
+            if (convMessages[i].content === content && convMessages[i].role === 'user') {
+                state.currentConversation.messages = convMessages.slice(0, i);
+                break;
+            }
+        }
+    }
+}
+
+// ===== VOICE INPUT =====
+let voiceRecognition = null;
+let isRecording = false;
+
+function initVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    voiceRecognition = new SpeechRecognition();
+    voiceRecognition.lang = 'es-ES';
+    voiceRecognition.continuous = false;
+    voiceRecognition.interimResults = true;
+
+    voiceRecognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        $('#message-input').value = transcript;
+        autoResizeTextarea();
+    };
+
+    voiceRecognition.onend = () => {
+        isRecording = false;
+        $('#voice-btn').innerHTML = '<i class="fas fa-microphone"></i>';
+        $('#voice-btn').style.color = '';
+    };
+
+    voiceRecognition.onerror = () => {
+        isRecording = false;
+        $('#voice-btn').innerHTML = '<i class="fas fa-microphone"></i>';
+        $('#voice-btn').style.color = '';
+    };
+}
+
+function toggleVoice() {
+    if (!voiceRecognition) {
+        alert('Tu navegador no soporta entrada por voz');
+        return;
+    }
+
+    if (isRecording) {
+        voiceRecognition.stop();
+        isRecording = false;
+        $('#voice-btn').innerHTML = '<i class="fas fa-microphone"></i>';
+        $('#voice-btn').style.color = '';
+    } else {
+        voiceRecognition.start();
+        isRecording = true;
+        $('#voice-btn').innerHTML = '<i class="fas fa-stop"></i>';
+        $('#voice-btn').style.color = 'var(--error)';
+    }
+}
+
+// ===== SUGGESTIONS =====
+function useSuggestion(btn) {
+    const text = btn.textContent.replace(/^[^\s]+\s/, ''); // Quitar emoji
+    $('#message-input').value = text;
+    autoResizeTextarea();
+    $('#message-input').focus();
+    // Ocultar sugerencias
+    $('#suggestions').style.display = 'none';
+}
 function formatMessage(text) {
     if (!text) return '';
+    
+    // Code blocks
     text = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+    // Inline code
     text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Headers
+    text = text.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+    text = text.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+    text = text.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    // Bold
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
     text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Links
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--primary)">$1</a>');
+    // Unordered lists
+    text = text.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
+    text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    // Ordered lists
+    text = text.replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>');
+    // Horizontal rule
+    text = text.replace(/^---$/gm, '<hr style="border-color:var(--border);margin:0.5rem 0;">');
+    // Line breaks (but not inside pre/code)
     text = text.replace(/\n/g, '<br>');
+    // Clean up double br in lists
+    text = text.replace(/<\/li><br>/g, '</li>');
+    text = text.replace(/<br><li>/g, '<li>');
+
     return text;
 }
 
@@ -436,6 +661,9 @@ async function sendMessage() {
     const attachments = [...state.attachments];
     state.attachments = [];
     $('#attachments-preview').innerHTML = '';
+    // Ocultar sugerencias
+    const suggestions = $('#suggestions');
+    if (suggestions) suggestions.style.display = 'none';
 
     const attachmentNames = attachments.map(a => ({ name: a.name, type: a.type }));
     addMessageToChat('user', message, attachmentNames);
@@ -656,7 +884,6 @@ async function createPodcast() {
         hideLoading();
         if (result.error) { alert('Error: ' + result.error); }
         else {
-            alert('¡Podcast creado!');
             loadPodcasts();
             $('#podcast-script-area').hidden = true;
             $('#podcast-topic').value = '';
@@ -675,7 +902,7 @@ async function loadPodcasts() {
             <div class="podcast-item">
                 <div class="podcast-item-icon"><i class="fas fa-podcast"></i></div>
                 <div class="podcast-item-info">
-                    <h4>${p.filename}</h4>
+                    <h4>${p.title || p.filename}</h4>
                     <p>${new Date(p.created_at).toLocaleDateString('es-ES')} · ${(p.size / 1024).toFixed(0)} KB</p>
                 </div>
                 <audio controls preload="none">
@@ -686,14 +913,105 @@ async function loadPodcasts() {
     } catch (e) { console.error('Error loading podcasts:', e); }
 }
 
+// ===== IMAGE HISTORY =====
+async function loadImageHistory() {
+    try {
+        const images = await api.fetch('/api/image-history');
+        const container = $('#generated-images');
+        if (images.length > 0 && container.children.length === 0) {
+            container.innerHTML = images.map(img => `
+                <div class="generated-image-card">
+                    <img src="${img.url}" alt="${img.prompt}">
+                    <div class="image-info">
+                        <p>${img.prompt}</p>
+                    </div>
+                    <div class="image-actions">
+                        <a href="${img.url}" target="_blank" download>⬇️ Descargar</a>
+                        <span style="font-size:0.75rem;color:var(--text-muted);">${new Date(img.created_at).toLocaleDateString('es-ES')}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {}
+}
+
+// ===== EXPORT CONVERSATION =====
+function exportConversation() {
+    if (!state.currentConversation || !state.currentConversation.messages || state.currentConversation.messages.length === 0) {
+        alert('No hay mensajes para exportar');
+        return;
+    }
+
+    const conv = state.currentConversation;
+    let text = `=== ${conv.title} ===\nFecha: ${new Date(conv.created_at).toLocaleDateString('es-ES')}\n\n`;
+
+    conv.messages.forEach(msg => {
+        const role = msg.role === 'user' ? '👤 Tú' : '🤖 OmniAI';
+        text += `${role}:\n${msg.content}\n\n---\n\n`;
+    });
+
+    // Descargar como TXT
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${conv.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ===== IMAGE GENERATION =====
+async function generateImage() {
+    const prompt = $('#image-prompt').value.trim();
+    if (!prompt) { alert('Describe la imagen que quieres generar'); return; }
+
+    $('#generate-image-btn').disabled = true;
+    $('#generate-image-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+
+    try {
+        const result = await api.fetch('/api/generate-image', {
+            method: 'POST',
+            body: JSON.stringify({ prompt })
+        });
+
+        if (result.error) {
+            alert(result.error);
+        } else {
+            const container = $('#generated-images');
+            const card = document.createElement('div');
+            card.className = 'generated-image-card';
+            card.innerHTML = `
+                <img src="${result.image.url}" alt="${prompt}">
+                <div class="image-info">
+                    <p>${prompt}</p>
+                </div>
+                <div class="image-actions">
+                    <a href="${result.image.url}" target="_blank" download="omniai-image.png">⬇️ Descargar</a>
+                </div>
+            `;
+            container.insertBefore(card, container.firstChild);
+            $('#image-prompt').value = '';
+        }
+    } catch (error) {
+        alert('Error de conexión: ' + error.message);
+    }
+
+    $('#generate-image-btn').disabled = false;
+    $('#generate-image-btn').innerHTML = '<i class="fas fa-magic"></i> Generar imagen';
+}
+
 // ===== UTILITIES =====
 function showLoading(text = 'Procesando...') {
+    const el = $('#loading-overlay');
     $('#loading-text').textContent = text;
-    $('#loading-overlay').hidden = false;
+    el.hidden = false;
+    el.style.display = 'flex';
 }
 
 function hideLoading() {
-    $('#loading-overlay').hidden = true;
+    const el = $('#loading-overlay');
+    el.hidden = true;
+    el.style.display = 'none';
 }
 
 function autoResizeTextarea() {
@@ -763,6 +1081,7 @@ function initEventListeners() {
     // Chat
     $('#new-chat-btn').addEventListener('click', createNewConversation);
     $('#delete-conv-btn').addEventListener('click', deleteCurrentConversation);
+    $('#export-conv-btn').addEventListener('click', exportConversation);
     $('#send-btn').addEventListener('click', sendMessage);
     $('#message-input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -775,6 +1094,10 @@ function initEventListeners() {
         if (e.target.files.length > 0) { handleFileUpload(e.target.files); e.target.value = ''; }
     });
 
+    // Voice
+    $('#voice-btn').addEventListener('click', toggleVoice);
+    initVoice();
+
     // Camera
     $('#camera-start-btn').addEventListener('click', startCamera);
     $('#camera-capture-btn').addEventListener('click', capturePhoto);
@@ -785,6 +1108,16 @@ function initEventListeners() {
     // Podcast
     $('#generate-script-btn').addEventListener('click', generatePodcastScript);
     $('#create-podcast-btn').addEventListener('click', createPodcast);
+
+    // Image generation
+    $('#generate-image-btn').addEventListener('click', generateImage);
+
+    // Load image history when switching to images section
+    $$('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (item.dataset.section === 'images') loadImageHistory();
+        });
+    });
 
     // Drag and drop
     const chatArea = $('#chat-messages');
@@ -798,12 +1131,23 @@ function initEventListeners() {
 
 // ===== INIT =====
 async function init() {
+    // Asegurar que el loading está oculto al inicio
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.hidden = true;
+
     initTheme();
     initEventListeners();
-    await initFirebase();
-    await checkOllamaStatus();
-    await loadConversations();
-    await loadPodcasts();
+
+    // Iniciar Firebase sin bloquear
+    initFirebase().catch(e => console.log('Firebase init error:', e));
+
+    // Cargar datos sin bloquear la UI
+    try { await checkOllamaStatus(); } catch(e) {}
+    try { await loadConversations(); } catch(e) {}
+    try { await loadPodcasts(); } catch(e) {}
+
+    // Asegurar que loading está oculto
+    hideLoading();
 
     setInterval(checkOllamaStatus, 30000);
 

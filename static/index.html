@@ -73,6 +73,10 @@
                     <i class="fas fa-camera"></i>
                     <span>Cámara</span>
                 </button>
+                <button class="nav-item" data-section="images">
+                    <i class="fas fa-image"></i>
+                    <span>Generar Imágenes</span>
+                </button>
                 <button class="nav-item" data-section="podcast">
                     <i class="fas fa-podcast"></i>
                     <span>Podcast</span>
@@ -108,6 +112,9 @@
                     <div class="chat-header">
                         <h2 id="chat-title">Nueva conversación</h2>
                         <div class="chat-actions">
+                            <button id="export-conv-btn" class="btn-icon" title="Exportar conversación" aria-label="Exportar conversación">
+                                <i class="fas fa-download"></i>
+                            </button>
                             <button id="delete-conv-btn" class="btn-icon" title="Eliminar conversación" aria-label="Eliminar conversación">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -131,12 +138,21 @@
                     </div>
 
                     <div class="chat-input-area">
+                        <div class="suggestions" id="suggestions">
+                            <button class="suggestion-chip" onclick="useSuggestion(this)">💡 Explícame la teoría de la relatividad</button>
+                            <button class="suggestion-chip" onclick="useSuggestion(this)">📝 Escríbeme un poema</button>
+                            <button class="suggestion-chip" onclick="useSuggestion(this)">💻 Cómo hacer una web con HTML</button>
+                            <button class="suggestion-chip" onclick="useSuggestion(this)">🧮 Resuelve: 2x + 5 = 15</button>
+                        </div>
                         <div class="attachments-preview" id="attachments-preview"></div>
                         <div class="input-wrapper">
                             <button id="attach-btn" class="btn-attach" title="Adjuntar archivo" aria-label="Adjuntar archivo">
                                 <i class="fas fa-paperclip"></i>
                             </button>
                             <textarea id="message-input" placeholder="Escribe tu mensaje..." rows="1" aria-label="Mensaje"></textarea>
+                            <button id="voice-btn" class="btn-attach" title="Entrada por voz" aria-label="Entrada por voz">
+                                <i class="fas fa-microphone"></i>
+                            </button>
                             <button id="send-btn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -181,6 +197,26 @@
                 </div>
             </section>
 
+            <!-- Image Generation Section -->
+            <section id="section-images" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header">
+                        <h2><i class="fas fa-image"></i> Generador de Imágenes</h2>
+                        <p>Describe lo que quieres y la IA lo creará</p>
+                    </div>
+                    <div class="podcast-creator">
+                        <div class="form-group">
+                            <label for="image-prompt">Describe la imagen que quieres</label>
+                            <textarea id="image-prompt" rows="3" placeholder="Ej: Un gato astronauta flotando en el espacio con la Tierra de fondo, estilo realista"></textarea>
+                        </div>
+                        <button id="generate-image-btn" class="btn-primary btn-full">
+                            <i class="fas fa-magic"></i> Generar imagen
+                        </button>
+                    </div>
+                    <div id="generated-images" class="generated-images"></div>
+                </div>
+            </section>
+
             <!-- Podcast Section -->
             <section id="section-podcast" class="section">
                 <div class="podcast-container">
@@ -215,14 +251,16 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="podcast-language">Idioma</label>
+                            <label for="podcast-language">Idioma y voz</label>
                             <select id="podcast-language">
-                                <option value="es">Español</option>
-                                <option value="en">Inglés</option>
-                                <option value="fr">Francés</option>
-                                <option value="de">Alemán</option>
-                                <option value="pt">Portugués</option>
-                                <option value="it">Italiano</option>
+                                <option value="es">Español (Álvaro - masculina)</option>
+                                <option value="es-f">Español (Elvira - femenina)</option>
+                                <option value="en">Inglés (Guy - masculina)</option>
+                                <option value="en-f">Inglés (Jenny - femenina)</option>
+                                <option value="fr">Francés (Henri)</option>
+                                <option value="de">Alemán (Conrad)</option>
+                                <option value="pt">Portugués (Antonio)</option>
+                                <option value="it">Italiano (Diego)</option>
                             </select>
                         </div>
                         <button id="generate-script-btn" class="btn-primary btn-full">
@@ -246,7 +284,7 @@
     </div>
 
     <!-- Loading overlay -->
-    <div id="loading-overlay" class="loading-overlay" hidden>
+    <div id="loading-overlay" class="loading-overlay" hidden style="display:none">
         <div class="loading-spinner">
             <div class="spinner"></div>
             <p id="loading-text">Procesando...</p>
