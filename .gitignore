@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+uploads/
+podcasts/
+conversations/
+.env
+*.mp3
+.vscode/

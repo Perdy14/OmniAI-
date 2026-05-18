@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OmniAI - Asistente Universal (100% Local)</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <span>OmniAI</span>
+                </div>
+                <button id="new-chat-btn" class="btn-new-chat" aria-label="Nueva conversación">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-section="chat">
+                    <i class="fas fa-comments"></i>
+                    <span>Chat</span>
+                </button>
+                <button class="nav-item" data-section="camera">
+                    <i class="fas fa-camera"></i>
+                    <span>Cámara</span>
+                </button>
+                <button class="nav-item" data-section="podcast">
+                    <i class="fas fa-podcast"></i>
+                    <span>Podcast</span>
+                </button>
+            </nav>
+
+            <div class="conversations-list" id="conversations-list">
+                <h3>Conversaciones</h3>
+                <div id="conv-items"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator" id="ollama-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Conectando...</span>
+                </div>
+                <button id="toggle-theme" class="btn-theme" aria-label="Cambiar tema">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Mobile menu toggle -->
+        <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menú">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat Section -->
+            <section id="section-chat" class="section active">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h2 id="chat-title">Nueva conversación</h2>
+                        <div class="chat-actions">
+                            <button id="delete-conv-btn" class="btn-icon" title="Eliminar conversación" aria-label="Eliminar conversación">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="welcome-message">
+                            <div class="welcome-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <h2>¡Hola! Soy OmniAI</h2>
+                            <p>Tu asistente de inteligencia artificial 100% local y gratuito. Funciono directamente en tu PC sin internet ni API. Sube archivos, usa la cámara o simplemente pregúntame lo que necesites.</p>
+                            <div class="welcome-features">
+                                <div class="feature-card">
+                                    <i class="fas fa-file-alt"></i>
+                                    <span>Analiza documentos</span>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-image"></i>
+                                    <span>Interpreta imágenes</span>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-camera"></i>
+                                    <span>Usa tu cámara</span>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-podcast"></i>
+                                    <span>Crea podcasts</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-area">
+                        <div class="attachments-preview" id="attachments-preview"></div>
+                        <div class="input-wrapper">
+                            <button id="attach-btn" class="btn-attach" title="Adjuntar archivo" aria-label="Adjuntar archivo">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <textarea id="message-input" placeholder="Escribe tu mensaje..." rows="1" aria-label="Mensaje"></textarea>
+                            <button id="send-btn" class="btn-send" title="Enviar mensaje" aria-label="Enviar mensaje">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <input type="file" id="file-input" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.html,.css,.js,.py,.png,.jpg,.jpeg,.gif,.webp,.bmp" hidden>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Camera Section -->
+            <section id="section-camera" class="section">
+                <div class="camera-container">
+                    <div class="camera-header">
+                        <h2><i class="fas fa-camera"></i> Cámara</h2>
+                        <p>Toma una foto y pregúntale a la IA sobre ella</p>
+                    </div>
+                    <div class="camera-view">
+                        <video id="camera-video" autoplay playsinline></video>
+                        <canvas id="camera-canvas" hidden></canvas>
+                        <img id="camera-preview" hidden alt="Vista previa de la captura">
+                    </div>
+                    <div class="camera-controls">
+                        <button id="camera-start-btn" class="btn-camera-action">
+                            <i class="fas fa-video"></i> Iniciar cámara
+                        </button>
+                        <button id="camera-capture-btn" class="btn-camera-action" hidden>
+                            <i class="fas fa-circle"></i> Capturar
+                        </button>
+                        <button id="camera-retake-btn" class="btn-camera-action" hidden>
+                            <i class="fas fa-redo"></i> Repetir
+                        </button>
+                        <button id="camera-use-btn" class="btn-camera-action btn-primary" hidden>
+                            <i class="fas fa-check"></i> Usar foto
+                        </button>
+                    </div>
+                    <div class="camera-question" id="camera-question" hidden>
+                        <textarea id="camera-message" placeholder="¿Qué quieres saber sobre esta imagen?" aria-label="Pregunta sobre la imagen"></textarea>
+                        <button id="camera-send-btn" class="btn-send">
+                            <i class="fas fa-paper-plane"></i> Preguntar
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Podcast Section -->
+            <section id="section-podcast" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header">
+                        <h2><i class="fas fa-podcast"></i> Creador de Podcasts</h2>
+                        <p>Genera podcasts con IA sobre cualquier tema</p>
+                    </div>
+
+                    <div class="podcast-creator">
+                        <div class="form-group">
+                            <label for="podcast-topic">Tema del podcast</label>
+                            <input type="text" id="podcast-topic" placeholder="Ej: La historia de la inteligencia artificial">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="podcast-duration">Duración (min)</label>
+                                <select id="podcast-duration">
+                                    <option value="2">2 minutos</option>
+                                    <option value="5" selected>5 minutos</option>
+                                    <option value="10">10 minutos</option>
+                                    <option value="15">15 minutos</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="podcast-style">Estilo</label>
+                                <select id="podcast-style">
+                                    <option value="informativo">Informativo</option>
+                                    <option value="conversacional">Conversacional</option>
+                                    <option value="narrativo">Narrativo</option>
+                                    <option value="educativo">Educativo</option>
+                                    <option value="entretenimiento">Entretenimiento</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="podcast-language">Idioma</label>
+                            <select id="podcast-language">
+                                <option value="es">Español</option>
+                                <option value="en">Inglés</option>
+                                <option value="fr">Francés</option>
+                                <option value="de">Alemán</option>
+                                <option value="pt">Portugués</option>
+                                <option value="it">Italiano</option>
+                            </select>
+                        </div>
+                        <button id="generate-script-btn" class="btn-primary btn-full">
+                            <i class="fas fa-magic"></i> Generar guion con IA
+                        </button>
+
+                        <div class="podcast-script" id="podcast-script-area" hidden>
+                            <label for="podcast-script-text">Guion del podcast (puedes editarlo)</label>
+                            <textarea id="podcast-script-text" rows="10"></textarea>
+                            <button id="create-podcast-btn" class="btn-primary btn-full">
+                                <i class="fas fa-microphone"></i> Crear podcast (audio)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="podcast-list" id="podcast-list">
+                        <h3>Mis Podcasts</h3>
+                        <div id="podcast-items"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay" hidden>
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p id="loading-text">Procesando...</p>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
