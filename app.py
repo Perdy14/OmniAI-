@@ -47,7 +47,7 @@ FIREBASE_CONFIG = {
     'messagingSenderId': "216262332338",
     'appId': "1:216262332338:web:71f597b7476c43da0fdeab",
     'measurementId': "G-NZ1WPLSRMT",
-    'databaseURL': "https://omniai-d081d-default-rtdb.firebaseio.com"
+    'databaseURL': "https://omniai-d081d-default-rtdb.europe-west1.firebasedatabase.app"
 }
 
 # Almacen de conversaciones en memoria
