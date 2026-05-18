@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0f0f23">
+
+    <!-- WebView (oculto hasta conectar) -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <!-- Pantalla de conexión -->
+    <LinearLayout
+        android:id="@+id/connectLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp">
+
+        <!-- Logo -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🧠"
+            android:textSize="64sp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OmniAI"
+            android:textSize="32sp"
+            android:textColor="#667eea"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Asistente de IA Local"
+            android:textSize="16sp"
+            android:textColor="#94a3b8"
+            android:layout_marginBottom="48dp" />
+
+        <!-- Instrucciones -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Introduce la IP de tu PC donde corre OmniAI:"
+            android:textSize="14sp"
+            android:textColor="#f1f5f9"
+            android:layout_marginBottom="12dp" />
+
+        <EditText
+            android:id="@+id/ipInput"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:hint="192.168.1.100"
+            android:textColorHint="#64748b"
+            android:textColor="#f1f5f9"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:background="@drawable/input_background"
+            android:padding="12dp"
+            android:inputType="text"
+            android:singleLine="true"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/connectBtn"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Conectar"
+            android:textSize="16sp"
+            android:textColor="#ffffff"
+            android:background="@drawable/button_background"
+            android:textAllCaps="false" />
+
+        <!-- Ayuda -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="\n📌 Pasos:\n1. Abre OmniAI en tu PC (iniciar.bat)\n2. Tu PC y móvil deben estar en la misma WiFi\n3. Introduce la IP de tu PC arriba"
+            android:textSize="12sp"
+            android:textColor="#64748b"
+            android:layout_marginTop="32dp" />
+
+    </LinearLayout>
+
+</FrameLayout>
