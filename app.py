@@ -9,6 +9,7 @@ import base64
 import uuid
 import threading
 import time
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -20,23 +21,40 @@ from PIL import Image
 from gtts import gTTS
 import requests
 
-app = Flask(__name__, static_folder='static')
+# Detectar si estamos en un .exe empaquetado
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys._MEIPASS)
+    WORK_DIR = Path(os.path.dirname(sys.executable))
+else:
+    BASE_DIR = Path(__file__).parent
+    WORK_DIR = BASE_DIR
+
+app = Flask(__name__, static_folder=str(BASE_DIR / 'static'))
 CORS(app)
 
 # Configuracion
-UPLOAD_FOLDER = Path('uploads')
+UPLOAD_FOLDER = WORK_DIR / 'uploads'
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-PODCASTS_FOLDER = Path('podcasts')
+PODCASTS_FOLDER = WORK_DIR / 'podcasts'
 PODCASTS_FOLDER.mkdir(exist_ok=True)
-CONVERSATIONS_FOLDER = Path('conversations')
+CONVERSATIONS_FOLDER = WORK_DIR / 'conversations'
 CONVERSATIONS_FOLDER.mkdir(exist_ok=True)
 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 
-# Configuracion de Ollama (local)
+# Configuracion de Ollama (local) - fallback
 OLLAMA_URL = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
 MODEL = os.environ.get('MODEL', 'llama3.2')
 VISION_MODEL = os.environ.get('VISION_MODEL', 'llava')
+
+# Configuracion de Groq (cloud - gratuito)
+try:
+    from config import GROQ_API_KEY as _GROQ_KEY
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', _GROQ_KEY)
+except ImportError:
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')
+GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 # Firebase config
 FIREBASE_CONFIG = {
@@ -119,19 +137,58 @@ def check_ollama():
 
 
 def get_available_models():
-    """Obtiene los modelos disponibles en Ollama."""
+    """Obtiene los modelos disponibles."""
+    models = [GROQ_MODEL]  # Groq siempre disponible
     try:
-        r = requests.get(f'{OLLAMA_URL}/api/tags', timeout=5)
+        r = requests.get(f'{OLLAMA_URL}/api/tags', timeout=3)
         if r.status_code == 200:
             data = r.json()
-            return [m['name'] for m in data.get('models', [])]
+            models += [m['name'] for m in data.get('models', [])]
     except Exception:
         pass
-    return []
+    return models
+
+
+def chat_with_groq(messages):
+    """Envia mensajes a Groq y obtiene respuesta."""
+    try:
+        headers = {
+            'Authorization': f'Bearer {GROQ_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'model': GROQ_MODEL,
+            'messages': messages,
+            'max_tokens': 4096,
+            'temperature': 0.7
+        }
+
+        r = requests.post(GROQ_URL, json=payload, headers=headers, timeout=60)
+
+        if r.status_code == 200:
+            data = r.json()
+            return data['choices'][0]['message']['content']
+        elif r.status_code == 429:
+            return "⚠️ Se ha alcanzado el límite de peticiones. Espera un momento e intenta de nuevo."
+        else:
+            error_data = r.json() if r.text else {}
+            return f"Error: {error_data.get('error', {}).get('message', r.status_code)}"
+
+    except requests.exceptions.Timeout:
+        return "⚠️ La respuesta tardó demasiado. Intenta de nuevo."
+    except Exception as e:
+        return f"⚠️ Error: {str(e)}"
 
 
 def chat_with_ollama(messages, model=None, images=None):
-    """Envia mensajes a Ollama y obtiene respuesta."""
+    """Envia mensajes a Ollama o Groq."""
+    # Intentar primero con Groq (más rápido y no requiere instalación)
+    if GROQ_API_KEY and not images:
+        result = chat_with_groq(messages)
+        if not result.startswith("⚠️"):
+            return result
+
+    # Si Groq falla o hay imágenes, intentar con Ollama local
     use_model = model or MODEL
 
     payload = {
@@ -165,9 +222,11 @@ def chat_with_ollama(messages, model=None, images=None):
             return f"Error de Ollama: {error_msg}"
 
     except requests.exceptions.ConnectionError:
-        return "⚠️ No se puede conectar con Ollama. Asegúrate de que Ollama esté ejecutándose."
+        if GROQ_API_KEY:
+            return chat_with_groq(messages)
+        return "⚠️ No se puede conectar con Ollama ni con Groq."
     except requests.exceptions.Timeout:
-        return "⚠️ La respuesta tardó demasiado. Intenta con una pregunta más corta."
+        return "⚠️ La respuesta tardó demasiado."
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
 
@@ -176,26 +235,38 @@ def chat_with_ollama(messages, model=None, images=None):
 
 @app.route('/')
 def index():
-    return send_from_directory('static', 'index.html')
+    return send_from_directory(str(BASE_DIR / 'static'), 'index.html')
+
+
+@app.route('/uploads/<filename>')
+def serve_upload(filename):
+    """Sirve archivos subidos/generados."""
+    filepath = UPLOAD_FOLDER / filename
+    if filepath.exists():
+        return send_file(str(filepath))
+    return jsonify({'error': 'Archivo no encontrado'}), 404
 
 
 @app.route('/<path:path>')
 def static_files(path):
-    return send_from_directory('static', path)
+    return send_from_directory(str(BASE_DIR / 'static'), path)
 
 
 # --- API DE ESTADO ---
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
-    """Verifica el estado de Ollama y modelos disponibles."""
+    """Verifica el estado de la IA."""
     ollama_running = check_ollama()
-    models = get_available_models() if ollama_running else []
+    models = get_available_models()
+    groq_available = bool(GROQ_API_KEY)
     return jsonify({
         'ollama_running': ollama_running,
+        'groq_available': groq_available,
         'models': models,
-        'current_model': MODEL,
-        'vision_model': VISION_MODEL
+        'current_model': GROQ_MODEL if groq_available else MODEL,
+        'vision_model': VISION_MODEL,
+        'status': 'online' if (groq_available or ollama_running) else 'offline'
     })
 
 
@@ -450,18 +521,29 @@ def generate_image():
 
     try:
         import urllib.parse
-        encoded_prompt = urllib.parse.quote(prompt)
+
+        # Traducir y mejorar el prompt usando Groq
+        translate_messages = [
+            {"role": "system", "content": "You are an expert image prompt engineer. The user will give you a description in any language. Your job is to convert it into a detailed, precise English prompt for an AI image generator. Be very specific about characters, actions, style, and composition. Only return the English prompt, nothing else."},
+            {"role": "user", "content": prompt}
+        ]
+        english_prompt = chat_with_groq(translate_messages) if GROQ_API_KEY else prompt
+
+        # Si la traducción falla, usar el original
+        if english_prompt.startswith("⚠️") or not english_prompt.strip():
+            english_prompt = prompt
+
+        encoded_prompt = urllib.parse.quote(english_prompt.strip())
         seed = uuid.uuid4().int % 100000
 
-        # Intentar con Pollinations primero
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=768&height=768&nologo=true&seed={seed}"
-        response = requests.get(image_url, timeout=180)
+        response = requests.get(image_url, timeout=90)
 
-        # Si Pollinations falla, usar servicio alternativo
+        # Si falla, reintentar
         if response.status_code != 200 or len(response.content) < 1000:
-            # Alternativa: usar otro endpoint de Pollinations con modelo diferente
-            image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&model=flux-realism"
-            response = requests.get(image_url, timeout=180)
+            simple_prompt = urllib.parse.quote(english_prompt[:100])
+            image_url = f"https://image.pollinations.ai/prompt/{simple_prompt}?width=512&height=512&nologo=true&seed={seed+1}"
+            response = requests.get(image_url, timeout=90)
 
         if response.status_code == 200 and len(response.content) > 1000:
             unique_name = f"{uuid.uuid4()}.png"
@@ -499,12 +581,6 @@ def generate_image():
 
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
-
-
-@app.route('/uploads/<filename>')
-def serve_upload(filename):
-    """Sirve archivos subidos/generados."""
-    return send_from_directory('uploads', filename)
 
 
 @app.route('/api/image-history', methods=['GET'])
@@ -672,25 +748,20 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))
     print(f"\n{'='*50}")
     print(f"  OmniAI - Asistente de IA Universal")
-    print(f"  Con cuentas de Google + IA Local")
+    print(f"  Funciona sin instalar nada extra")
     print(f"{'='*50}")
     print(f"\n  Servidor: http://localhost:{port}")
-    print(f"  Modelo: {MODEL}")
+    print(f"  IA Cloud (Groq): ✓ Disponible ({GROQ_MODEL})")
 
     if check_ollama():
-        models = get_available_models()
-        print(f"  Ollama: ✓ Conectado")
-        print(f"  Modelos: {', '.join(models) if models else 'ninguno'}")
+        print(f"  IA Local (Ollama): ✓ Conectado")
     else:
-        print(f"  Ollama: ✗ No detectado")
-        print(f"  Ejecuta: ollama serve")
+        print(f"  IA Local (Ollama): No instalado (opcional)")
 
     print(f"\n{'='*50}")
     print(f"  La app se abrirá en tu navegador...")
     print(f"  NO cierres esta ventana mientras uses OmniAI.")
     print(f"{'='*50}\n")
 
-    # Abrir navegador automáticamente
     webbrowser.open(f'http://localhost:{port}')
-
     app.run(host='0.0.0.0', port=port, debug=False)

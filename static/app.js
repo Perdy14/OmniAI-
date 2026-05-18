@@ -1024,22 +1024,17 @@ function autoResizeTextarea() {
 async function checkOllamaStatus() {
     try {
         const status = await api.getStatus();
-        state.ollamaConnected = status.ollama_running;
-        state.availableModels = status.models || [];
 
         const statusEl = document.getElementById('ollama-status');
         const dot = statusEl.querySelector('.status-dot');
         const text = statusEl.querySelector('.status-text');
 
-        if (status.ollama_running && status.models.length > 0) {
+        if (status.status === 'online') {
             dot.className = 'status-dot connected';
             text.textContent = `IA: ${status.current_model}`;
-        } else if (status.ollama_running) {
-            dot.className = 'status-dot disconnected';
-            text.textContent = 'Sin modelos';
         } else {
             dot.className = 'status-dot disconnected';
-            text.textContent = 'Ollama offline';
+            text.textContent = 'IA offline';
         }
     } catch (e) {
         const statusEl = document.getElementById('ollama-status');

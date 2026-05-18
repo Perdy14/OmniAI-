@@ -10,3 +10,4 @@ conversations/
 build/
 dist/
 *.spec
+config.py
