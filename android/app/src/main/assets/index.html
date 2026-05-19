@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OmniAI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <div id="app">
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo"><i class="fas fa-brain"></i><span>OmniAI</span></div>
+                <button id="new-chat-btn" class="btn-new-chat"><i class="fas fa-plus"></i></button>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-section="chat"><i class="fas fa-comments"></i><span>Chat</span></button>
+                <button class="nav-item" data-section="camera"><i class="fas fa-camera"></i><span>Cámara</span></button>
+                <button class="nav-item" data-section="images"><i class="fas fa-image"></i><span>Imágenes</span></button>
+                <button class="nav-item" data-section="podcast"><i class="fas fa-podcast"></i><span>Podcast</span></button>
+            </nav>
+            <div class="conversations-list" id="conversations-list"><h3>Conversaciones</h3><div id="conv-items"></div></div>
+            <div class="sidebar-footer">
+                <div class="status-indicator" id="ollama-status"><span class="status-dot connected"></span><span class="status-text">IA Online</span></div>
+                <button id="toggle-theme" class="btn-theme"><i class="fas fa-moon"></i></button>
+            </div>
+        </aside>
+        <button id="mobile-menu-btn" class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+        <main class="main-content">
+            <section id="section-chat" class="section active">
+                <div class="chat-container">
+                    <div class="chat-header"><h2 id="chat-title">Nueva conversación</h2></div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="welcome-message">
+                            <div class="welcome-icon"><i class="fas fa-brain"></i></div>
+                            <h2>¡Hola! Soy OmniAI</h2>
+                            <p>Tu asistente de IA. Pregúntame lo que quieras.</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <div class="input-wrapper">
+                            <button id="attach-btn" class="btn-attach" title="Adjuntar imagen"><i class="fas fa-paperclip"></i></button>
+                            <textarea id="message-input" placeholder="Escribe tu mensaje..." rows="1"></textarea>
+                            <button id="send-btn" class="btn-send"><i class="fas fa-paper-plane"></i></button>
+                        </div>
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                    </div>
+                </div>
+            </section>
+            <section id="section-images" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header"><h2><i class="fas fa-image"></i> Generador de Imágenes</h2><p>Describe lo que quieres y la IA lo creará</p></div>
+                    <div class="podcast-creator">
+                        <div class="form-group"><label>Describe la imagen</label><textarea id="image-prompt" rows="3" placeholder="Ej: Un gato astronauta en el espacio"></textarea></div>
+                        <button id="generate-image-btn" class="btn-primary btn-full"><i class="fas fa-magic"></i> Generar imagen</button>
+                    </div>
+                    <div id="generated-images" class="generated-images"></div>
+                </div>
+            </section>
+            <section id="section-camera" class="section">
+                <div class="camera-container">
+                    <div class="camera-header"><h2><i class="fas fa-camera"></i> Cámara</h2><p>Toma una foto y pregúntale a la IA</p></div>
+                    <div class="camera-view"><video id="camera-video" autoplay playsinline></video><canvas id="camera-canvas" hidden></canvas><img id="camera-preview" hidden></div>
+                    <div class="camera-controls">
+                        <button id="camera-start-btn" class="btn-camera-action"><i class="fas fa-video"></i> Iniciar</button>
+                        <button id="camera-stop-btn" class="btn-camera-action" hidden><i class="fas fa-video-slash"></i> Parar</button>
+                        <button id="camera-capture-btn" class="btn-camera-action" hidden><i class="fas fa-circle"></i> Capturar</button>
+                        <button id="camera-retake-btn" class="btn-camera-action" hidden><i class="fas fa-redo"></i> Repetir</button>
+                        <button id="camera-use-btn" class="btn-camera-action btn-primary" hidden><i class="fas fa-check"></i> Usar</button>
+                    </div>
+                    <div id="camera-question" hidden style="width:100%;max-width:640px;display:flex;gap:0.5rem;margin-top:1rem;">
+                        <textarea id="camera-message" placeholder="Pregunta sobre la imagen..." style="flex:1;padding:0.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:inherit;resize:none;"></textarea>
+                        <button id="camera-send-btn" class="btn-send" style="width:auto;padding:0.75rem 1rem;border-radius:8px;"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+            <section id="section-podcast" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header"><h2><i class="fas fa-podcast"></i> Creador de Podcasts</h2><p>Genera podcasts con IA</p></div>
+                    <div class="podcast-creator">
+                        <div class="form-group"><label>Tema del podcast</label><input type="text" id="podcast-topic" placeholder="Ej: La historia de la IA" style="width:100%;padding:0.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-family:inherit;"></div>
+                        <div class="form-group"><label>Duración</label><select id="podcast-duration" style="width:100%;padding:0.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);"><option value="2">2 min</option><option value="5" selected>5 min</option><option value="10">10 min</option></select></div>
+                        <button id="generate-script-btn" class="btn-primary btn-full"><i class="fas fa-magic"></i> Generar guion</button>
+                        <div id="podcast-script-area" hidden style="margin-top:1rem;">
+                            <textarea id="podcast-script-text" rows="8" style="width:100%;padding:0.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-family:inherit;"></textarea>
+                            <p style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-muted);">Puedes editar el guion antes de crear el audio</p>
+                        </div>
+                    </div>
+                    <div id="podcast-items" style="margin-top:1.5rem;"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+    // ===== STANDALONE GROQ CLIENT =====
+    const conversations = {};
+    let currentConv = null;
+
+    async function callGroq(messages) {
+        const r = await fetch(GROQ_URL, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: GROQ_MODEL, messages: messages, max_tokens: 4096, temperature: 0.7 })
+        });
+        const data = await r.json();
+        if (data.choices) return data.choices[0].message.content;
+        return '⚠️ Error: ' + (data.error?.message || 'Sin respuesta');
+    }
+
+    async function callGroqVision(imageBase64, question) {
+        const visionModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+        const r = await fetch(GROQ_URL, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: visionModel,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: question },
+                        { type: 'image_url', image_url: { url: imageBase64 } }
+                    ]
+                }],
+                max_tokens: 2048
+            })
+        });
+        const data = await r.json();
+        if (data.choices) return data.choices[0].message.content;
+        return '⚠️ Error: ' + (data.error?.message || 'Sin respuesta');
+    }
+
+    // DOM
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    // Theme
+    function initTheme() {
+        const t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        $('#toggle-theme').querySelector('i').className = t === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    // Navigation
+    $$('.nav-item').forEach(n => n.addEventListener('click', () => {
+        $$('.section').forEach(s => s.classList.remove('active'));
+        $$('.nav-item').forEach(i => i.classList.remove('active'));
+        n.classList.add('active');
+        $(`#section-${n.dataset.section}`).classList.add('active');
+        $('#sidebar').classList.remove('open');
+    }));
+
+    $('#mobile-menu-btn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+    $('#toggle-theme').addEventListener('click', () => {
+        const c = document.documentElement.getAttribute('data-theme');
+        const n = c === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', n);
+        localStorage.setItem('theme', n);
+        $('#toggle-theme').querySelector('i').className = n === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    });
+
+    // Chat
+    function createConv() {
+        const id = Date.now().toString();
+        conversations[id] = { id, title: 'Nueva conversación', messages: [] };
+        currentConv = conversations[id];
+        $('#chat-title').textContent = currentConv.title;
+        $('#chat-messages').innerHTML = '<div class="welcome-message"><div class="welcome-icon"><i class="fas fa-brain"></i></div><h2>¡Hola! Soy OmniAI</h2><p>Pregúntame lo que quieras.</p></div>';
+    }
+
+    $('#new-chat-btn').addEventListener('click', createConv);
+
+    function addMsg(role, content) {
+        const w = $('#chat-messages').querySelector('.welcome-message');
+        if (w) w.remove();
+        const isUser = role === 'user';
+        const html = `<div class="message ${role}"><div class="message-avatar"><i class="fas fa-${isUser?'user':'brain'}"></i></div><div class="message-content">${content.replace(/\n/g,'<br>')}</div></div>`;
+        $('#chat-messages').insertAdjacentHTML('beforeend', html);
+        $('#chat-messages').scrollTop = $('#chat-messages').scrollHeight;
+    }
+
+    let attachedImage = null;
+
+    $('#attach-btn').addEventListener('click', () => $('#file-input').click());
+    $('#file-input').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            attachedImage = ev.target.result;
+            $('#message-input').placeholder = '📷 Imagen adjunta - ¿Qué quieres saber?';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    async function sendMessage() {
+        const msg = $('#message-input').value.trim();
+        if (!msg && !attachedImage) return;
+        if (!currentConv) createConv();
+
+        $('#message-input').value = '';
+        $('#message-input').placeholder = 'Escribe tu mensaje...';
+
+        const displayMsg = attachedImage ? '📷 ' + (msg || '¿Qué hay en esta imagen?') : msg;
+        addMsg('user', displayMsg);
+
+        if (currentConv.messages.length === 0 && msg) {
+            currentConv.title = msg.substring(0, 40);
+            $('#chat-title').textContent = currentConv.title;
+        }
+
+        addMsg('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
+
+        let response;
+        if (attachedImage) {
+            response = await callGroqVision(attachedImage, msg || '¿Qué hay en esta imagen? Descríbela en detalle.');
+            currentConv.messages.push({role:'user',content:'[Imagen] ' + (msg || '¿Qué hay aquí?')});
+            attachedImage = null;
+        } else {
+            currentConv.messages.push({role:'user',content:msg});
+            const sysMsg = {role:'system',content:'Eres OmniAI, un asistente experto en todos los temas. Responde en español de forma clara y útil.'};
+            const msgs = [sysMsg, ...currentConv.messages.slice(-20)];
+            response = await callGroq(msgs);
+        }
+
+        const allMsgs = $$('#chat-messages .message');
+        allMsgs[allMsgs.length-1].remove();
+
+        addMsg('assistant', response);
+        currentConv.messages.push({role:'assistant',content:response});
+    }
+
+    $('#send-btn').addEventListener('click', sendMessage);
+    $('#message-input').addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} });
+
+    // Images
+    $('#generate-image-btn').addEventListener('click', async () => {
+        const prompt = $('#image-prompt').value.trim();
+        if (!prompt) return;
+        $('#generate-image-btn').disabled = true;
+        $('#generate-image-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+
+        // Translate prompt
+        const translated = await callGroq([{role:'system',content:'Translate to English. Only return the translation.'},{role:'user',content:prompt}]);
+        const encoded = encodeURIComponent(translated);
+        const url = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=768&nologo=true&seed=${Math.floor(Math.random()*100000)}`;
+
+        const container = $('#generated-images');
+        container.insertAdjacentHTML('afterbegin', `<div class="generated-image-card"><img src="${url}" alt="${prompt}"><div class="image-info"><p>${prompt}</p></div></div>`);
+        $('#image-prompt').value = '';
+        $('#generate-image-btn').disabled = false;
+        $('#generate-image-btn').innerHTML = '<i class="fas fa-magic"></i> Generar imagen';
+    });
+
+    // Init
+    initTheme();
+    createConv();
+
+    // Camera
+    let cameraStream = null;
+    let capturedImage = null;
+
+    $('#camera-start-btn').addEventListener('click', async () => {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+            $('#camera-video').srcObject = cameraStream;
+            $('#camera-video').hidden = false;
+            $('#camera-start-btn').hidden = true;
+            $('#camera-stop-btn').hidden = false;
+            $('#camera-capture-btn').hidden = false;
+        } catch(e) { alert('No se pudo acceder a la cámara'); }
+    });
+
+    $('#camera-stop-btn').addEventListener('click', () => {
+        if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
+        $('#camera-video').hidden=true;$('#camera-preview').hidden=true;
+        $('#camera-start-btn').hidden=false;$('#camera-stop-btn').hidden=true;
+        $('#camera-capture-btn').hidden=true;$('#camera-retake-btn').hidden=true;
+        $('#camera-use-btn').hidden=true;$('#camera-question').hidden=true;
+    });
+
+    $('#camera-capture-btn').addEventListener('click', () => {
+        const v=$('#camera-video'),c=$('#camera-canvas');
+        c.width=v.videoWidth;c.height=v.videoHeight;
+        c.getContext('2d').drawImage(v,0,0);
+        capturedImage=c.toDataURL('image/png');
+        $('#camera-preview').src=capturedImage;$('#camera-preview').hidden=false;
+        $('#camera-video').hidden=true;$('#camera-capture-btn').hidden=true;
+        $('#camera-retake-btn').hidden=false;$('#camera-use-btn').hidden=false;
+    });
+
+    $('#camera-retake-btn').addEventListener('click', () => {
+        $('#camera-preview').hidden=true;$('#camera-video').hidden=false;
+        $('#camera-capture-btn').hidden=false;$('#camera-retake-btn').hidden=true;
+        $('#camera-use-btn').hidden=true;$('#camera-question').hidden=true;
+    });
+
+    $('#camera-use-btn').addEventListener('click', () => { $('#camera-question').hidden=false; });
+
+    $('#camera-send-btn').addEventListener('click', async () => {
+        const msg=$('#camera-message').value.trim()||'¿Qué hay en esta imagen?';
+        if(!capturedImage)return;
+        $$('.section').forEach(s=>s.classList.remove('active'));
+        $$('.nav-item').forEach(n=>n.classList.remove('active'));
+        $('#section-chat').classList.add('active');
+        $('.nav-item[data-section="chat"]').classList.add('active');
+        if(!currentConv)createConv();
+        addMsg('user','📷 '+msg);
+        currentConv.messages.push({role:'user',content:'[Foto cámara] '+msg});
+        addMsg('assistant','<div class="typing-indicator"><span></span><span></span><span></span></div>');
+        const response=await callGroqVision(capturedImage,msg);
+        $$('#chat-messages .message')[$$('#chat-messages .message').length-1].remove();
+        addMsg('assistant',response);
+        currentConv.messages.push({role:'assistant',content:response});
+        // Reset cámara
+        if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
+        capturedImage=null;
+        $('#camera-video').hidden=true;$('#camera-preview').hidden=true;
+        $('#camera-start-btn').hidden=false;$('#camera-stop-btn').hidden=true;
+        $('#camera-capture-btn').hidden=true;$('#camera-retake-btn').hidden=true;
+        $('#camera-use-btn').hidden=true;$('#camera-question').hidden=true;
+        $('#camera-message').value='';
+    });
+
+    // Podcast
+    $('#generate-script-btn').addEventListener('click', async () => {
+        const topic=$('#podcast-topic').value.trim();
+        if(!topic){alert('Escribe un tema');return;}
+        $('#generate-script-btn').disabled=true;
+        $('#generate-script-btn').innerHTML='<i class="fas fa-spinner fa-spin"></i> Generando...';
+        const script=await callGroq([{role:'system',content:'Genera un guion de podcast natural en español.'},{role:'user',content:`Genera un guion de podcast de ${$('#podcast-duration').value} minutos sobre: ${topic}. Solo el texto que se leerá, sin indicaciones de producción.`}]);
+        $('#podcast-script-text').value=script;
+        $('#podcast-script-area').hidden=false;
+
+        // Crear botón de reproducir
+        const playBtn = document.createElement('button');
+        playBtn.className = 'btn-primary btn-full';
+        playBtn.style.marginTop = '0.75rem';
+        playBtn.innerHTML = '<i class="fas fa-play"></i> Reproducir podcast';
+        const stopBtn = document.createElement('button');
+        stopBtn.className = 'btn-primary btn-full';
+        stopBtn.style.marginTop = '0.5rem';
+        stopBtn.style.background = 'var(--error)';
+        stopBtn.innerHTML = '<i class="fas fa-stop"></i> Parar';
+        stopBtn.hidden = true;
+
+        playBtn.onclick = () => {
+            const text = $('#podcast-script-text').value;
+            if (!text) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'es-ES';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            // Buscar voz en español
+            const voices = speechSynthesis.getVoices();
+            const esVoice = voices.find(v => v.lang.startsWith('es'));
+            if (esVoice) utterance.voice = esVoice;
+
+            speechSynthesis.cancel();
+            speechSynthesis.speak(utterance);
+            playBtn.hidden = true;
+            stopBtn.hidden = false;
+
+            utterance.onend = () => {
+                playBtn.hidden = false;
+                stopBtn.hidden = true;
+            };
+        };
+
+        stopBtn.onclick = () => {
+            speechSynthesis.cancel();
+            playBtn.hidden = false;
+            stopBtn.hidden = true;
+        };
+
+        // Añadir botones al área
+        const area = $('#podcast-script-area');
+        const oldBtns = area.querySelectorAll('button');
+        oldBtns.forEach(b => b.remove());
+        area.appendChild(playBtn);
+        area.appendChild(stopBtn);
+
+        $('#generate-script-btn').disabled=false;
+        $('#generate-script-btn').innerHTML='<i class="fas fa-magic"></i> Generar guion';
+    });
+
+    // Cargar voces (necesario en algunos navegadores)
+    if (typeof speechSynthesis !== 'undefined') {
+        speechSynthesis.getVoices();
+        speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+    }
+    </script>
+</body>
+</html>

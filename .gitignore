@@ -11,3 +11,5 @@ build/
 dist/
 *.spec
 config.py
+android/app/src/main/assets/config.js
+android/omniai.keystore

@@ -756,6 +756,7 @@ async function startCamera() {
         $('#camera-video').hidden = false;
         $('#camera-preview').hidden = true;
         $('#camera-start-btn').hidden = true;
+        $('#camera-stop-btn').hidden = false;
         $('#camera-capture-btn').hidden = false;
         $('#camera-retake-btn').hidden = true;
         $('#camera-use-btn').hidden = true;
@@ -842,6 +843,7 @@ function stopCamera() {
     $('#camera-video').hidden = true;
     $('#camera-preview').hidden = true;
     $('#camera-start-btn').hidden = false;
+    $('#camera-stop-btn').hidden = true;
     $('#camera-capture-btn').hidden = true;
     $('#camera-retake-btn').hidden = true;
     $('#camera-use-btn').hidden = true;
@@ -1095,6 +1097,7 @@ function initEventListeners() {
 
     // Camera
     $('#camera-start-btn').addEventListener('click', startCamera);
+    $('#camera-stop-btn').addEventListener('click', stopCamera);
     $('#camera-capture-btn').addEventListener('click', capturePhoto);
     $('#camera-retake-btn').addEventListener('click', retakePhoto);
     $('#camera-use-btn').addEventListener('click', usePhoto);

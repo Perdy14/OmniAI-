@@ -1,141 +1,146 @@
-# 🧠 OmniAI - Asistente de IA Universal (100% Local)
+# 🧠 OmniAI - Asistente de IA Universal
 
-Un asistente de inteligencia artificial que sabe de **absolutamente todo**, funciona **sin internet**, **sin API**, **sin costes**. Todo se ejecuta en tu propio PC.
+Un asistente de inteligencia artificial que sabe de **absolutamente todo**, con interfaz moderna y disponible en **todas las plataformas**.
 
-![OmniAI](https://img.shields.io/badge/OmniAI-v1.0.0-667eea)
+![OmniAI](https://img.shields.io/badge/OmniAI-v3.0-667eea)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
-![Ollama](https://img.shields.io/badge/Ollama-Local_AI-green)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 ## ✨ Características
 
-- 🤖 **IA 100% Local** - Sin API, sin internet, sin costes, totalmente privado
-- 💬 **Chat ilimitado** - Sin restricciones de preguntas ni respuestas
-- 📄 **Archivos** - Sube PDFs, Word, imágenes, código y más
-- 📷 **Cámara** - Toma fotos y pregunta sobre ellas
-- 🎙️ **Podcasts** - Genera guiones con IA y crea audio
-- 🌙 **Tema oscuro/claro** - Interfaz moderna y adaptable
-- 📱 **Multiplataforma** - Windows, Linux, macOS, móviles y tablets (PWA)
-- 💾 **Historial** - Todas las conversaciones se guardan localmente
-- 🔒 **Privacidad total** - Tus datos nunca salen de tu PC
+- 🤖 **Chat con IA** — Pregunta cualquier cosa, sobre cualquier tema, sin límites
+- 📷 **Análisis de imágenes** — Sube una foto y la IA te explica qué ve
+- 🎨 **Generador de imágenes** — Crea imágenes con IA describiendo lo que quieres
+- 🎙️ **Creador de podcasts** — Genera guiones con IA y conviértelos en audio
+- 📄 **Análisis de documentos** — Sube PDFs, Word, código y otros archivos
+- 🎤 **Entrada por voz** — Habla en vez de escribir
+- 🌐 **Traducción automática** — Traduce respuestas al instante
+- 💾 **Exportar conversaciones** — Guarda tus chats como TXT
+- 🌙 **Tema oscuro/claro** — Interfaz adaptable
+- 🔐 **Login con Google** — Sincroniza tus conversaciones
 
-## 🚀 Inicio Rápido
+## 📥 Descargas
 
-### Paso 1: Instala Ollama (el motor de IA)
+Ve a la pestaña [**Releases**](../../releases) y descarga la versión para tu dispositivo:
 
-Descarga **gratis** desde: https://ollama.com
+| Plataforma | Archivo | Cómo usarlo |
+|------------|---------|-------------|
+| 🪟 **Windows** | `OmniAI_Setup.exe` | Doble clic, instala como cualquier programa |
+| 🐧 **Linux** | Código fuente + `iniciar.sh` | Ver instrucciones abajo |
+| 🍎 **macOS** | Código fuente + `iniciar.sh` | Ver instrucciones abajo |
+| 🤖 **Android** | `OmniAI.apk` | Permitir orígenes desconocidos e instalar |
+| 📱 **iPhone/iPad** | PWA | Abrir web y añadir a pantalla de inicio |
 
-### Paso 2: Ejecuta la app
+## 🚀 Instalación por sistema
 
-**Windows:**
-```
-Doble clic en iniciar.bat
-```
+### 🪟 Windows
 
-**Linux / macOS:**
+1. Descarga `OmniAI_Setup.exe` desde Releases
+2. Doble clic para instalar
+3. Se creará un acceso directo en el escritorio
+4. Listo, doble clic y se abre en tu navegador
+
+### 🐧 Linux / 🍎 macOS
+
 ```bash
+# Clonar el repositorio
+git clone https://github.com/Perdy14/OmniAI-.git
+cd OmniAI-
+
+# Dar permisos al script
 chmod +x iniciar.sh
+
+# Ejecutar
 ./iniciar.sh
 ```
 
-¡Eso es todo! El script se encarga de instalar Python, dependencias y descargar el modelo de IA automáticamente.
+El script instala todo automáticamente y abre el navegador.
+
+### 🤖 Android
+
+1. Descarga `OmniAI.apk` desde Releases
+2. En tu móvil ve a **Ajustes → Seguridad** y permite "Instalar apps desconocidas"
+3. Abre el archivo descargado
+4. Listo
+
+### 📱 iPhone / iPad
+
+Como Apple no permite instalar apps fuera de la App Store sin pagar, usa la versión web:
+
+1. Abre Safari y ve a la URL donde tengas alojado OmniAI
+2. Toca el botón compartir
+3. Selecciona **"Añadir a pantalla de inicio"**
+4. Se instala como una app nativa
 
 ## 📋 Requisitos
 
-- **Python 3.9+** ([Descargar](https://www.python.org/downloads/))
-- **Ollama** ([Descargar gratis](https://ollama.com))
-- **8GB RAM mínimo** (16GB recomendado para modelos grandes)
-
-## 🤖 Modelos de IA Disponibles
-
-Puedes usar cualquier modelo de Ollama. Algunos recomendados:
-
-| Modelo | Tamaño | Descripción |
-|--------|--------|-------------|
-| `llama3.2` | 2GB | Rápido y ligero (por defecto) |
-| `llama3.1` | 4.7GB | Más potente |
-| `mistral` | 4.1GB | Excelente para español |
-| `llava` | 4.5GB | Puede ver imágenes |
-| `codellama` | 3.8GB | Especializado en código |
-
-Para instalar un modelo:
-```bash
-ollama pull llama3.2
-ollama pull llava    # Para análisis de imágenes
-```
-
-## 📱 Uso en Móviles y Tablets
-
-OmniAI es una **Progressive Web App (PWA)**:
-
-1. Abre la app en el navegador de tu móvil/tablet usando la IP de tu PC
-   (ej: `http://192.168.1.100:5000`)
-2. En Chrome: Menú → "Añadir a pantalla de inicio"
-3. En Safari: Compartir → "Añadir a pantalla de inicio"
-4. Se instalará como una app nativa
-
-## 📂 Estructura del Proyecto
-
-```
-ia/
-├── app.py              # Backend (Flask + Ollama)
-├── requirements.txt    # Dependencias Python
-├── iniciar.bat         # Script de inicio (Windows)
-├── iniciar.sh          # Script de inicio (Linux/Mac)
-├── static/
-│   ├── index.html      # Página principal
-│   ├── styles.css      # Estilos modernos
-│   ├── app.js          # Lógica del frontend
-│   ├── manifest.json   # Configuración PWA
-│   ├── sw.js           # Service Worker
-│   └── icon.svg        # Icono
-├── uploads/            # Archivos subidos
-├── podcasts/           # Podcasts generados
-└── conversations/      # Historial guardado
-```
+- **Windows**: Windows 10/11
+- **Linux**: Cualquier distribución con Python 3.9+
+- **macOS**: macOS 11+ con Python 3.9+
+- **Android**: Android 7.0+
+- **Conexión a internet**: Sí (la IA funciona en la nube via Groq, gratis)
 
 ## 🎯 Funcionalidades
 
 ### 💬 Chat Universal
-- Pregunta sobre cualquier tema sin límites
-- Sube archivos para que la IA los analice
-- Arrastra y suelta archivos
-- Historial completo guardado en tu PC
+- Responde sobre cualquier tema
+- Mantiene contexto de la conversación
+- Soporta Markdown (código, listas, formato)
+- Botones para copiar, traducir, regenerar y editar mensajes
 
-### 📄 Archivos Soportados
-- **PDF** - Extrae y analiza contenido
-- **Word (.docx)** - Lee documentos
-- **Imágenes** - Analiza con modelo de visión (llava)
-- **Texto** - .txt, .md, .csv, .json, .xml, .html, .css, .js, .py
+### 📷 Cámara y Visión
+- Toma fotos en tiempo real
+- Analiza imágenes con IA (vision)
+- Describe lo que ve, identifica objetos, lee texto
 
-### 📷 Cámara
-- Accede a la cámara del dispositivo
-- Toma fotos y pregunta a la IA
-- Funciona en móviles con cámara trasera
+### 🎨 Generador de Imágenes
+- Describe la imagen en español
+- La IA traduce y la genera
+- Historial de imágenes creadas
+- Descarga directa
 
 ### 🎙️ Podcasts
-- La IA genera guiones sobre cualquier tema
-- Personaliza duración, estilo e idioma
-- Convierte a audio MP3
-- Reproduce y descarga
+- Genera guiones con IA sobre cualquier tema
+- Conviértelos en audio con voces realistas
+- Reproduce desde el dispositivo
 
-## 🔧 Solución de Problemas
+## 🔧 Configuración
 
-| Problema | Solución |
-|----------|----------|
-| "Ollama offline" | Ejecuta `ollama serve` en una terminal |
-| "Sin modelos" | Ejecuta `ollama pull llama3.2` |
-| Respuestas lentas | Usa un modelo más pequeño o cierra otras apps |
-| No funciona la cámara | Permite acceso en tu navegador |
-| No se ve en el móvil | Usa la IP local de tu PC, no localhost |
+La app usa **Groq** (IA en la nube, gratuita) por defecto. No necesitas configurar nada.
 
-## 🔒 Privacidad
+Si quieres usar tu propia API key de Groq, edita `config.py`:
+```python
+GROQ_API_KEY = "tu_api_key_aqui"
+```
 
-- **Todo es local**: La IA se ejecuta en tu PC
-- **Sin internet**: No necesita conexión (excepto para descargar modelos la primera vez)
-- **Sin API keys**: No hay cuentas ni pagos
-- **Sin telemetría**: Tus datos nunca salen de tu máquina
-- **Sin límites**: Usa la IA todo lo que quieras
+Obtén una gratis en: https://console.groq.com
+
+## 📂 Estructura del Proyecto
+
+```
+OmniAI/
+├── app.py              # Servidor Flask
+├── requirements.txt    # Dependencias Python
+├── iniciar.bat         # Script Windows
+├── iniciar.sh          # Script Linux/Mac
+├── installer.iss       # Configuración Inno Setup
+├── static/             # Frontend web
+│   ├── index.html
+│   ├── styles.css
+│   ├── app.js
+│   └── ...
+└── android/            # Proyecto Android Studio
+    └── app/...
+```
+
+## 🤝 Contribuir
+
+Este es un proyecto personal pero las contribuciones son bienvenidas. Abre un issue o pull request.
 
 ## 📄 Licencia
 
 MIT - Usa este proyecto como quieras.
+
+## 👤 Autor
+
+Antonio Beltrán - [@Perdy14](https://github.com/Perdy14)
