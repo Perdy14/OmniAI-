@@ -915,6 +915,97 @@ async function loadPodcasts() {
     } catch (e) { console.error('Error loading podcasts:', e); }
 }
 
+// ===== MINDS (Personalidades IA) =====
+const defaultMinds = [
+    { id: 'general', name: 'OmniAI', icon: '🧠', color: '#667eea', desc: 'Asistente general que sabe de todo', prompt: 'Eres OmniAI, un asistente experto en todos los temas. Responde en español de forma clara y útil.', custom: false },
+    { id: 'code', name: 'CodeMaster', icon: '💻', color: '#10b981', desc: 'Experto en programación y código', prompt: 'Eres CodeMaster, un experto programador. Ayudas con código, debugging, arquitectura y cualquier lenguaje de programación. Responde en español con ejemplos de código.', custom: false },
+    { id: 'creative', name: 'Creativa', icon: '🎨', color: '#f59e0b', desc: 'Escritora creativa, poemas, historias', prompt: 'Eres Creativa, una escritora y artista. Generas poemas, historias, guiones, letras de canciones y contenido creativo. Responde en español con estilo artístico.', custom: false },
+    { id: 'teacher', name: 'Profe', icon: '📚', color: '#8b5cf6', desc: 'Profesor que explica todo fácil', prompt: 'Eres Profe, un profesor paciente y didáctico. Explicas cualquier tema de forma sencilla con ejemplos, como si hablaras con un estudiante. Responde en español.', custom: false },
+    { id: 'fitness', name: 'FitCoach', icon: '💪', color: '#ef4444', desc: 'Entrenador personal y nutrición', prompt: 'Eres FitCoach, un entrenador personal y nutricionista. Creas rutinas de ejercicio, planes de alimentación y consejos de salud. Responde en español.', custom: false },
+    { id: 'chef', name: 'ChefIA', icon: '👨‍🍳', color: '#f97316', desc: 'Chef experto en cocina y recetas', prompt: 'Eres ChefIA, un chef profesional. Creas recetas, explicas técnicas de cocina y sugieres platos según ingredientes disponibles. Responde en español.', custom: false },
+    { id: 'travel', name: 'Viajero', icon: '✈️', color: '#06b6d4', desc: 'Guía de viajes y aventuras', prompt: 'Eres Viajero, un experto en viajes. Recomiendas destinos, itinerarios, consejos de viaje, presupuestos y experiencias. Responde en español.', custom: false },
+    { id: 'science', name: 'Científica', icon: '🔬', color: '#ec4899', desc: 'Experta en ciencia y tecnología', prompt: 'Eres Científica, una experta en ciencias. Explicas física, química, biología, astronomía y tecnología de forma accesible. Responde en español.', custom: false }
+];
+
+// Cargar mentes personalizadas del localStorage
+let minds = [...defaultMinds, ...(JSON.parse(localStorage.getItem('custom_minds') || '[]'))];
+let activeMind = minds[0];
+
+function saveCustomMinds() {
+    const custom = minds.filter(m => m.custom);
+    localStorage.setItem('custom_minds', JSON.stringify(custom));
+}
+
+function createMind() {
+    const name = $('#mind-name').value.trim();
+    const desc = $('#mind-desc').value.trim();
+    const instructions = $('#mind-instructions').value.trim();
+    const icon = $('#mind-icon').value.trim() || '✨';
+
+    if (!name) { alert('Ponle un nombre a tu Mente'); return; }
+    if (!instructions) { alert('Escribe las instrucciones'); return; }
+
+    const colors = ['#667eea','#10b981','#f59e0b','#8b5cf6','#ef4444','#f97316','#06b6d4','#ec4899'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    const newMind = {
+        id: 'custom_' + Date.now(),
+        name: name,
+        icon: icon,
+        color: color,
+        desc: desc || name,
+        prompt: instructions + ' Responde siempre en español.',
+        custom: true
+    };
+
+    minds.push(newMind);
+    saveCustomMinds();
+    renderMinds();
+
+    // Limpiar formulario
+    $('#mind-name').value = '';
+    $('#mind-desc').value = '';
+    $('#mind-instructions').value = '';
+    $('#mind-icon').value = '';
+}
+
+function deleteMind(id) {
+    if (!confirm('¿Eliminar esta Mente?')) return;
+    minds = minds.filter(m => m.id !== id);
+    if (activeMind.id === id) activeMind = minds[0];
+    saveCustomMinds();
+    renderMinds();
+}
+
+function renderMinds() {
+    const grid = $('#minds-grid');
+    if (!grid) return;
+    grid.innerHTML = minds.map(m => `
+        <div class="mind-card ${m.id === activeMind.id ? 'active' : ''}" data-id="${m.id}" style="border-color:${m.id === activeMind.id ? m.color : ''}">
+            <div class="mind-icon">${m.icon}</div>
+            <h4 style="color:${m.color}">${m.name}</h4>
+            <p>${m.desc}</p>
+            ${m.id === activeMind.id ? '<div class="mind-active">✓ Activa</div>' : ''}
+            ${m.custom ? `<button class="msg-action-btn" onclick="event.stopPropagation();deleteMind('${m.id}')" title="Eliminar" style="position:absolute;top:0.5rem;right:0.5rem;"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+    `).join('');
+
+    grid.querySelectorAll('.mind-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const mind = minds.find(m => m.id === card.dataset.id);
+            if (mind) {
+                activeMind = mind;
+                renderMinds();
+                createNewConversation();
+                switchSection('chat');
+                setTimeout(() => {
+                    addMessageToChat('assistant', `${mind.icon} ¡Hola! Soy <strong>${mind.name}</strong>. ${mind.desc}. ¿En qué puedo ayudarte?`);
+                }, 300);
+            }
+        });
+    });
+}
+
 // ===== IMAGE HISTORY =====
 async function loadImageHistory() {
     try {
@@ -1110,10 +1201,14 @@ function initEventListeners() {
     // Image generation
     $('#generate-image-btn').addEventListener('click', generateImage);
 
+    // Minds
+    $('#create-mind-btn').addEventListener('click', createMind);
+
     // Load image history when switching to images section
     $$('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             if (item.dataset.section === 'images') loadImageHistory();
+            if (item.dataset.section === 'minds') renderMinds();
         });
     });
 
@@ -1135,6 +1230,7 @@ async function init() {
 
     initTheme();
     initEventListeners();
+    renderMinds();
 
     // Iniciar Firebase sin bloquear
     initFirebase().catch(e => console.log('Firebase init error:', e));

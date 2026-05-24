@@ -18,6 +18,7 @@
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-section="chat"><i class="fas fa-comments"></i><span>Chat</span></button>
+                <button class="nav-item" data-section="minds"><i class="fas fa-gem"></i><span>Mentes</span></button>
                 <button class="nav-item" data-section="camera"><i class="fas fa-camera"></i><span>Cámara</span></button>
                 <button class="nav-item" data-section="images"><i class="fas fa-image"></i><span>Imágenes</span></button>
                 <button class="nav-item" data-section="podcast"><i class="fas fa-podcast"></i><span>Podcast</span></button>
@@ -42,11 +43,11 @@
                     </div>
                     <div class="chat-input-area">
                         <div class="input-wrapper">
-                            <button id="attach-btn" class="btn-attach" title="Adjuntar imagen"><i class="fas fa-paperclip"></i></button>
+                            <button id="attach-btn" class="btn-attach" title="Adjuntar archivo"><i class="fas fa-paperclip"></i></button>
                             <textarea id="message-input" placeholder="Escribe tu mensaje..." rows="1"></textarea>
                             <button id="send-btn" class="btn-send"><i class="fas fa-paper-plane"></i></button>
                         </div>
-                        <input type="file" id="file-input" accept="image/*" hidden>
+                        <input type="file" id="file-input" accept="image/*,.pdf,.txt,.doc,.docx,.csv,.json" hidden>
                     </div>
                 </div>
             </section>
@@ -58,6 +59,20 @@
                         <button id="generate-image-btn" class="btn-primary btn-full"><i class="fas fa-magic"></i> Generar imagen</button>
                     </div>
                     <div id="generated-images" class="generated-images"></div>
+                </div>
+            </section>
+            <section id="section-minds" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header"><h2><i class="fas fa-gem"></i> Mentes</h2><p>Elige o crea personalidades para la IA</p></div>
+                    <div class="podcast-creator" style="margin-bottom:1.5rem;">
+                        <h4 style="color:var(--primary);margin-bottom:0.5rem;"><i class="fas fa-plus-circle"></i> Crear nueva Mente</h4>
+                        <input type="text" id="mind-name" placeholder="Nombre (ej: Jardinero)" style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);margin-bottom:0.5rem;font-family:inherit;">
+                        <input type="text" id="mind-desc" placeholder="Descripción corta" style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);margin-bottom:0.5rem;font-family:inherit;">
+                        <textarea id="mind-instructions" rows="3" placeholder="Instrucciones: Eres un experto en..." style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);margin-bottom:0.5rem;font-family:inherit;resize:vertical;"></textarea>
+                        <input type="text" id="mind-icon" placeholder="🌱" maxlength="2" style="width:50px;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);text-align:center;font-size:1.3rem;margin-bottom:0.5rem;">
+                        <button id="create-mind-btn" class="btn-primary btn-full"><i class="fas fa-plus"></i> Crear Mente</button>
+                    </div>
+                    <div id="minds-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem;margin-top:1rem;"></div>
                 </div>
             </section>
             <section id="section-camera" class="section">
@@ -120,7 +135,7 @@
                 messages: [{
                     role: 'user',
                     content: [
-                        { type: 'text', text: question },
+                        { type: 'text', text: 'IMPORTANTE: Responde SIEMPRE en español. ' + question },
                         { type: 'image_url', image_url: { url: imageBase64 } }
                     ]
                 }],
@@ -182,34 +197,53 @@
     }
 
     let attachedImage = null;
+    let attachedText = null;
+    let attachedFileName = null;
 
     $('#attach-btn').addEventListener('click', () => $('#file-input').click());
     $('#file-input').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            attachedImage = ev.target.result;
-            $('#message-input').placeholder = '📷 Imagen adjunta - ¿Qué quieres saber?';
-        };
-        reader.readAsDataURL(file);
+        attachedFileName = file.name;
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (['png','jpg','jpeg','gif','webp','bmp'].includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { attachedImage = ev.target.result; attachedText = null; $('#message-input').placeholder = '📷 ' + file.name + ' - ¿Qué quieres saber?'; };
+            reader.readAsDataURL(file);
+        } else if (['txt','csv','json','md','html','css','js','py','xml'].includes(ext)) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { attachedText = ev.target.result; attachedImage = null; $('#message-input').placeholder = '📄 ' + file.name + ' adjunto'; };
+            reader.readAsText(file);
+        } else if (ext === 'pdf') {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const bytes = new Uint8Array(ev.target.result);
+                let text = '';
+                for (let i = 0; i < bytes.length; i++) { const c = bytes[i]; if (c >= 32 && c <= 126) text += String.fromCharCode(c); else if (c === 10 || c === 13) text += '\n'; }
+                text = text.replace(/\s{3,}/g, ' ').trim();
+                if (text.length > 100) { attachedText = text.substring(0, 15000); attachedImage = null; $('#message-input').placeholder = '📄 ' + file.name + ' adjunto'; }
+                else { alert('No se pudo leer el PDF. Intenta con una foto del documento.'); }
+            };
+            reader.readAsArrayBuffer(file);
+        } else { alert('Usa imágenes, PDF, TXT, CSV o JSON.'); }
+        e.target.value = '';
     });
 
     async function sendMessage() {
         const msg = $('#message-input').value.trim();
-        if (!msg && !attachedImage) return;
+        if (!msg && !attachedImage && !attachedText) return;
         if (!currentConv) createConv();
 
         $('#message-input').value = '';
         $('#message-input').placeholder = 'Escribe tu mensaje...';
 
-        const displayMsg = attachedImage ? '📷 ' + (msg || '¿Qué hay en esta imagen?') : msg;
+        let displayMsg = msg;
+        if (attachedImage) displayMsg = '📷 ' + (msg || '¿Qué hay en esta imagen?');
+        if (attachedText) displayMsg = '📄 ' + attachedFileName + ' - ' + (msg || 'Analiza este documento');
         addMsg('user', displayMsg);
 
-        if (currentConv.messages.length === 0 && msg) {
-            currentConv.title = msg.substring(0, 40);
-            $('#chat-title').textContent = currentConv.title;
-        }
+        if (currentConv.messages.length === 0 && msg) { currentConv.title = msg.substring(0, 40); $('#chat-title').textContent = currentConv.title; }
 
         addMsg('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
 
@@ -218,16 +252,20 @@
             response = await callGroqVision(attachedImage, msg || '¿Qué hay en esta imagen? Descríbela en detalle.');
             currentConv.messages.push({role:'user',content:'[Imagen] ' + (msg || '¿Qué hay aquí?')});
             attachedImage = null;
+        } else if (attachedText) {
+            const fullMsg = 'Archivo adjunto "' + attachedFileName + '":\n\n' + attachedText + '\n\nPregunta: ' + (msg || 'Analiza este documento y dame un resumen.');
+            currentConv.messages.push({role:'user',content:fullMsg});
+            const msgs = [{role:'system',content:activeMind.prompt}, ...currentConv.messages.slice(-10)];
+            response = await callGroq(msgs);
+            attachedText = null; attachedFileName = null;
         } else {
             currentConv.messages.push({role:'user',content:msg});
-            const sysMsg = {role:'system',content:'Eres OmniAI, un asistente experto en todos los temas. Responde en español de forma clara y útil.'};
-            const msgs = [sysMsg, ...currentConv.messages.slice(-20)];
+            const msgs = [{role:'system',content:activeMind.prompt}, ...currentConv.messages.slice(-20)];
             response = await callGroq(msgs);
         }
 
         const allMsgs = $$('#chat-messages .message');
         allMsgs[allMsgs.length-1].remove();
-
         addMsg('assistant', response);
         currentConv.messages.push({role:'assistant',content:response});
     }
@@ -253,6 +291,78 @@
         $('#generate-image-btn').disabled = false;
         $('#generate-image-btn').innerHTML = '<i class="fas fa-magic"></i> Generar imagen';
     });
+
+    // ===== MENTES (Personalidades IA) =====
+    const defaultMinds = [
+        { id: 'general', name: 'OmniAI', icon: '🧠', color: '#667eea', desc: 'Asistente general que sabe de todo', prompt: 'Eres OmniAI, un asistente experto en todos los temas. Responde en español de forma clara y útil.', custom: false },
+        { id: 'code', name: 'CodeMaster', icon: '💻', color: '#10b981', desc: 'Experto en programación y código', prompt: 'Eres CodeMaster, un experto programador. Ayudas con código, debugging, arquitectura y cualquier lenguaje de programación. Responde en español con ejemplos de código.', custom: false },
+        { id: 'creative', name: 'Creativa', icon: '🎨', color: '#f59e0b', desc: 'Escritora creativa, poemas, historias', prompt: 'Eres Creativa, una escritora y artista. Generas poemas, historias, guiones, letras de canciones y contenido creativo. Responde en español con estilo artístico.', custom: false },
+        { id: 'teacher', name: 'Profe', icon: '📚', color: '#8b5cf6', desc: 'Profesor que explica todo fácil', prompt: 'Eres Profe, un profesor paciente y didáctico. Explicas cualquier tema de forma sencilla con ejemplos, como si hablaras con un estudiante. Responde en español.', custom: false },
+        { id: 'fitness', name: 'FitCoach', icon: '💪', color: '#ef4444', desc: 'Entrenador personal y nutrición', prompt: 'Eres FitCoach, un entrenador personal y nutricionista. Creas rutinas de ejercicio, planes de alimentación y consejos de salud. Responde en español.', custom: false },
+        { id: 'chef', name: 'ChefIA', icon: '👨‍🍳', color: '#f97316', desc: 'Chef experto en cocina y recetas', prompt: 'Eres ChefIA, un chef profesional. Creas recetas, explicas técnicas de cocina y sugieres platos según ingredientes disponibles. Responde en español.', custom: false },
+        { id: 'travel', name: 'Viajero', icon: '✈️', color: '#06b6d4', desc: 'Guía de viajes y aventuras', prompt: 'Eres Viajero, un experto en viajes. Recomiendas destinos, itinerarios, consejos de viaje, presupuestos y experiencias. Responde en español.', custom: false },
+        { id: 'science', name: 'Científica', icon: '🔬', color: '#ec4899', desc: 'Experta en ciencia y tecnología', prompt: 'Eres Científica, una experta en ciencias. Explicas física, química, biología, astronomía y tecnología de forma accesible. Responde en español.', custom: false }
+    ];
+
+    let minds = [...defaultMinds, ...(JSON.parse(localStorage.getItem('custom_minds') || '[]'))];
+    let activeMind = minds[0];
+
+    function saveCustomMinds() {
+        localStorage.setItem('custom_minds', JSON.stringify(minds.filter(m => m.custom)));
+    }
+
+    $('#create-mind-btn').addEventListener('click', () => {
+        const name = $('#mind-name').value.trim();
+        const desc = $('#mind-desc').value.trim();
+        const instructions = $('#mind-instructions').value.trim();
+        const icon = $('#mind-icon').value.trim() || '✨';
+        if (!name) { alert('Ponle un nombre'); return; }
+        if (!instructions) { alert('Escribe instrucciones'); return; }
+        const colors = ['#667eea','#10b981','#f59e0b','#8b5cf6','#ef4444','#f97316','#06b6d4','#ec4899'];
+        minds.push({ id:'custom_'+Date.now(), name, icon, color:colors[Math.floor(Math.random()*colors.length)], desc:desc||name, prompt:instructions+' Responde siempre en español.', custom:true });
+        saveCustomMinds(); renderMinds();
+        $('#mind-name').value='';$('#mind-desc').value='';$('#mind-instructions').value='';$('#mind-icon').value='';
+    });
+
+    function deleteMind(id) {
+        if (!confirm('¿Eliminar esta Mente?')) return;
+        minds = minds.filter(m => m.id !== id);
+        if (activeMind.id === id) activeMind = minds[0];
+        saveCustomMinds(); renderMinds();
+    }
+
+    function renderMinds() {
+        const grid = $('#minds-grid');
+        grid.innerHTML = minds.map(m => `
+            <div class="mind-card ${m.id === activeMind.id ? 'active' : ''}" data-id="${m.id}" 
+                 style="position:relative;background:var(--bg-card);border:2px solid ${m.id === activeMind.id ? m.color : 'var(--border)'};border-radius:12px;padding:1rem;cursor:pointer;transition:all 0.3s;">
+                <div style="font-size:2rem;margin-bottom:0.5rem;">${m.icon}</div>
+                <h4 style="font-size:0.95rem;margin-bottom:0.25rem;color:${m.color};">${m.name}</h4>
+                <p style="font-size:0.8rem;color:var(--text-muted);">${m.desc}</p>
+                ${m.id === activeMind.id ? '<span style="font-size:0.7rem;color:var(--success);margin-top:0.5rem;display:block;">✓ Activa</span>' : ''}
+                ${m.custom ? `<button onclick="event.stopPropagation();deleteMind('${m.id}')" style="position:absolute;top:0.5rem;right:0.5rem;width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-muted);cursor:pointer;font-size:0.7rem;display:flex;align-items:center;justify-content:center;"><i class="fas fa-trash"></i></button>` : ''}
+            </div>
+        `).join('');
+
+        grid.querySelectorAll('.mind-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const mind = minds.find(m => m.id === card.dataset.id);
+                if (mind) {
+                    activeMind = mind;
+                    renderMinds();
+                    createConv();
+                    $$('.section').forEach(s => s.classList.remove('active'));
+                    $$('.nav-item').forEach(n => n.classList.remove('active'));
+                    $('#section-chat').classList.add('active');
+                    $('.nav-item[data-section="chat"]').classList.add('active');
+                    $('#sidebar').classList.remove('open');
+                    addMsg('assistant', `${mind.icon} ¡Hola! Soy <strong>${mind.name}</strong>. ${mind.desc}. ¿En qué puedo ayudarte?`);
+                }
+            });
+        });
+    }
+
+    renderMinds();
 
     // Init
     initTheme();
@@ -325,6 +435,9 @@
     });
 
     // Podcast
+    let podcastUtterance = null;
+    let isPodcastPlaying = false;
+
     $('#generate-script-btn').addEventListener('click', async () => {
         const topic=$('#podcast-topic').value.trim();
         if(!topic){alert('Escribe un tema');return;}
@@ -334,63 +447,88 @@
         $('#podcast-script-text').value=script;
         $('#podcast-script-area').hidden=false;
 
-        // Crear botón de reproducir
-        const playBtn = document.createElement('button');
-        playBtn.className = 'btn-primary btn-full';
-        playBtn.style.marginTop = '0.75rem';
-        playBtn.innerHTML = '<i class="fas fa-play"></i> Reproducir podcast';
-        const stopBtn = document.createElement('button');
-        stopBtn.className = 'btn-primary btn-full';
-        stopBtn.style.marginTop = '0.5rem';
-        stopBtn.style.background = 'var(--error)';
-        stopBtn.innerHTML = '<i class="fas fa-stop"></i> Parar';
-        stopBtn.hidden = true;
+        // Eliminar botones anteriores si existen
+        const area = $('#podcast-script-area');
+        area.querySelectorAll('.podcast-btn').forEach(b => b.remove());
 
-        playBtn.onclick = () => {
+        // Crear botones
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'podcast-btn';
+        btnContainer.style.marginTop = '0.75rem';
+        btnContainer.innerHTML = `
+            <button id="play-pod" style="width:100%;padding:0.875rem;border-radius:12px;border:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-size:0.95rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+                <i class="fas fa-play"></i> Reproducir podcast
+            </button>
+            <button id="stop-pod" style="width:100%;padding:0.875rem;border-radius:12px;border:none;background:#ef4444;color:white;font-size:0.95rem;font-weight:600;cursor:pointer;display:none;align-items:center;justify-content:center;gap:0.5rem;margin-top:0.5rem;">
+                <i class="fas fa-stop"></i> Parar podcast
+            </button>
+        `;
+        area.appendChild(btnContainer);
+
+        // Event listeners para reproducir/parar
+        document.getElementById('play-pod').addEventListener('click', function() {
             const text = $('#podcast-script-text').value;
             if (!text) return;
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
 
-            // Buscar voz en español
-            const voices = speechSynthesis.getVoices();
-            const esVoice = voices.find(v => v.lang.startsWith('es'));
-            if (esVoice) utterance.voice = esVoice;
+            // Cancelar cualquier reproducción anterior
+            window.speechSynthesis.cancel();
 
-            speechSynthesis.cancel();
-            speechSynthesis.speak(utterance);
-            playBtn.hidden = true;
-            stopBtn.hidden = false;
+            // Dividir texto en chunks (Android tiene límite de caracteres)
+            const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
+            let chunkIndex = 0;
+            isPodcastPlaying = true;
 
-            utterance.onend = () => {
-                playBtn.hidden = false;
-                stopBtn.hidden = true;
-            };
-        };
+            function speakNext() {
+                if (chunkIndex >= chunks.length || !isPodcastPlaying) {
+                    document.getElementById('play-pod').style.display = 'flex';
+                    document.getElementById('stop-pod').style.display = 'none';
+                    isPodcastPlaying = false;
+                    return;
+                }
 
-        stopBtn.onclick = () => {
-            speechSynthesis.cancel();
-            playBtn.hidden = false;
-            stopBtn.hidden = true;
-        };
+                const utterance = new SpeechSynthesisUtterance(chunks[chunkIndex]);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
 
-        // Añadir botones al área
-        const area = $('#podcast-script-area');
-        const oldBtns = area.querySelectorAll('button');
-        oldBtns.forEach(b => b.remove());
-        area.appendChild(playBtn);
-        area.appendChild(stopBtn);
+                const voices = window.speechSynthesis.getVoices();
+                const esVoice = voices.find(v => v.lang.startsWith('es'));
+                if (esVoice) utterance.voice = esVoice;
+
+                utterance.onend = function() {
+                    chunkIndex++;
+                    speakNext();
+                };
+
+                utterance.onerror = function() {
+                    chunkIndex++;
+                    speakNext();
+                };
+
+                window.speechSynthesis.speak(utterance);
+            }
+
+            speakNext();
+            this.style.display = 'none';
+            document.getElementById('stop-pod').style.display = 'flex';
+        });
+
+        document.getElementById('stop-pod').addEventListener('click', function() {
+            isPodcastPlaying = false;
+            window.speechSynthesis.cancel();
+            document.getElementById('play-pod').style.display = 'flex';
+            this.style.display = 'none';
+        });
 
         $('#generate-script-btn').disabled=false;
         $('#generate-script-btn').innerHTML='<i class="fas fa-magic"></i> Generar guion';
     });
 
-    // Cargar voces (necesario en algunos navegadores)
+    // Cargar voces
     if (typeof speechSynthesis !== 'undefined') {
         speechSynthesis.getVoices();
-        speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = function() { speechSynthesis.getVoices(); };
+        }
     }
     </script>
 </body>

@@ -73,6 +73,10 @@
                     <i class="fas fa-camera"></i>
                     <span>Cámara</span>
                 </button>
+                <button class="nav-item" data-section="minds">
+                    <i class="fas fa-gem"></i>
+                    <span>Mentes</span>
+                </button>
                 <button class="nav-item" data-section="images">
                     <i class="fas fa-image"></i>
                     <span>Generar Imágenes</span>
@@ -197,6 +201,44 @@
                             <i class="fas fa-paper-plane"></i> Preguntar
                         </button>
                     </div>
+                </div>
+            </section>
+
+            <!-- Minds Section -->
+            <section id="section-minds" class="section">
+                <div class="podcast-container">
+                    <div class="podcast-header">
+                        <h2><i class="fas fa-gem"></i> Mentes</h2>
+                        <p>Elige o crea personalidades especializadas para la IA</p>
+                    </div>
+
+                    <!-- Crear nueva mente -->
+                    <div class="podcast-creator" style="margin-bottom:1.5rem;">
+                        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:var(--primary);"><i class="fas fa-plus-circle"></i> Crear nueva Mente</h3>
+                        <div class="form-group">
+                            <label for="mind-name">Nombre</label>
+                            <input type="text" id="mind-name" placeholder="Ej: Jardinero, Abogado, Músico...">
+                        </div>
+                        <div class="form-group">
+                            <label for="mind-desc">Descripción</label>
+                            <input type="text" id="mind-desc" placeholder="Describe qué hace esta mente">
+                        </div>
+                        <div class="form-group">
+                            <label for="mind-instructions">Instrucciones</label>
+                            <textarea id="mind-instructions" rows="4" placeholder="Ej: Eres un horticultor con experiencia en césped natural y plantas autóctonas, y ayudas a las personas a planificar jardines..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="mind-icon">Icono (emoji)</label>
+                            <input type="text" id="mind-icon" placeholder="🌱" maxlength="2" style="width:60px;text-align:center;font-size:1.5rem;">
+                        </div>
+                        <button id="create-mind-btn" class="btn-primary btn-full">
+                            <i class="fas fa-plus"></i> Crear Mente
+                        </button>
+                    </div>
+
+                    <!-- Grid de mentes -->
+                    <h3 style="font-size:1rem;margin-bottom:0.75rem;color:var(--text-secondary);">Mentes disponibles</h3>
+                    <div id="minds-grid" class="minds-grid"></div>
                 </div>
             </section>
 

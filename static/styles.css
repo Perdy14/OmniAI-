@@ -1387,3 +1387,51 @@ body {
 .message-content h2 { font-size: 1.2rem; }
 .message-content h3 { font-size: 1.1rem; }
 .message-content h4 { font-size: 1rem; }
+
+/* ===== MINDS ===== */
+.minds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.mind-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+}
+
+.mind-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.mind-card.active {
+    border-color: var(--primary);
+}
+
+.mind-card .mind-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.mind-card h4 {
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.mind-card p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.mind-card .mind-active {
+    font-size: 0.75rem;
+    color: var(--success);
+    margin-top: 0.5rem;
+}
